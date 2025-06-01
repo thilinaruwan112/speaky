@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Mic, MicOff, Square, ChevronRight, CheckCircle2, XCircle, Loader2, UserCircle2 } from 'lucide-react';
+import { Mic, Square, ChevronRight, CheckCircle2, XCircle, Loader2, UserCircle2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { getIconByName } from '@/lib/icons';
 import { cn } from '@/lib/utils';
@@ -44,9 +44,10 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   
   const isScenarioFinished = currentLineIndex >= scenario.dialogue.length;
 
-  // Refs for state values needed in stable callbacks
   const currentDialogueLineRef = useRef(currentDialogueLine);
   const feedbackRef = useRef(feedback);
+  const isProcessingAiRef = useRef(isProcessingAi);
+  const isScenarioFinishedRef = useRef(isScenarioFinished);
 
   useEffect(() => {
     currentDialogueLineRef.current = currentDialogueLine;
@@ -56,8 +57,20 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     feedbackRef.current = feedback;
   }, [feedback]);
 
+  useEffect(() => {
+    isProcessingAiRef.current = isProcessingAi;
+  }, [isProcessingAi]);
+
+  useEffect(() => {
+    isScenarioFinishedRef.current = isScenarioFinished;
+  }, [isScenarioFinished]);
+
   const handleNextLine = useCallback(() => {
-    if (isScenarioFinished) return;
+    if (isScenarioFinishedRef.current) return;
+
+    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
 
     if (currentLineIndex < scenario.dialogue.length - 1) {
       setCurrentLineIndex(prev => prev + 1);
@@ -69,7 +82,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } else {
       setCurrentLineIndex(prev => prev + 1); 
     }
-  }, [currentLineIndex, scenario.dialogue.length, isScenarioFinished]);
+  }, [currentLineIndex, scenario.dialogue.length]);
 
 
   useEffect(() => {
@@ -135,10 +148,10 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         recognitionRef.current.onresult = null;
         recognitionRef.current.onerror = null;
         recognitionRef.current.onend = null;
-        recognitionRef.current.abort(); // Use abort for a more forceful stop
+        recognitionRef.current.abort();
       }
     };
-  }, [toast]); // Stable dependency array
+  }, [toast]);
 
   const processTranscription = useCallback(async (textToProcess: string) => {
     if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'USER' || !textToProcess.trim()) {
@@ -161,11 +174,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } catch (error) {
       console.error("AI analysis error:", error);
       setFeedback({ isCorrect: false, message: 'Error analyzing pronunciation. Please try again.' });
-      toast({ title: "AI Error", description: "Could not analyze pronunciation.", variant: "destructive" });
+      toast({ title: "Analysis Error", description: "Could not analyze pronunciation.", variant: "destructive" });
     } finally {
       setIsProcessingAi(false);
     }
-  }, [toast]); // currentDialogueLineRef is a ref, so it doesn't need to be a dependency
+  }, [toast]);
 
 
   useEffect(() => {
@@ -213,25 +226,69 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [isRecording]);
 
   useEffect(() => {
-    if (isScenarioFinished || !currentDialogueLineRef.current) return;
+    const currentLine = currentDialogueLineRef.current;
+    const feedbackValue = feedbackRef.current; // Using ref value
+    const processingAi = isProcessingAiRef.current; // Using ref value
+    const scenarioFinished = isScenarioFinishedRef.current; // Using ref value
 
-    let timerId: NodeJS.Timeout;
+    if (scenarioFinished || !currentLine) {
+      return;
+    }
 
-    if (currentDialogueLineRef.current.speaker === 'ASSISTANT') {
-      timerId = setTimeout(() => {
-        if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinished) {
-          handleNextLine();
-        }
-      }, 3000); 
-    } else if (currentDialogueLineRef.current.speaker === 'USER' && feedbackRef.current?.isCorrect && !isProcessingAi) {
-      timerId = setTimeout(() => {
-         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinished) {
+    let assistantSpeechTimeoutId: NodeJS.Timeout | null = null;
+    let userAdvanceTimeoutId: NodeJS.Timeout | null = null;
+    let synthesisFallbackTimeoutId: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (assistantSpeechTimeoutId) clearTimeout(assistantSpeechTimeoutId);
+      if (userAdvanceTimeoutId) clearTimeout(userAdvanceTimeoutId);
+      if (synthesisFallbackTimeoutId) clearTimeout(synthesisFallbackTimeoutId);
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+    };
+
+    if (currentLine.speaker === 'ASSISTANT') {
+      if ('speechSynthesis' in window) {
+        assistantSpeechTimeoutId = setTimeout(() => {
+          if (window.speechSynthesis.speaking) { // Ensure not already speaking
+            window.speechSynthesis.cancel();
+          }
+          const utterance = new SpeechSynthesisUtterance(currentLine.text);
+          utterance.lang = 'en-US';
+          utterance.onend = () => {
+            if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+              handleNextLine();
+            }
+          };
+          utterance.onerror = (event) => {
+            console.error('SpeechSynthesis Error:', event.error);
+            toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
+            synthesisFallbackTimeoutId = setTimeout(() => {
+               if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+                 handleNextLine();
+               }
+             }, 3000);
+          };
+          window.speechSynthesis.speak(utterance);
+        }, 250); // Short delay before speaking
+      } else {
+        toast({ title: "Speech Playback Not Supported", description: "Advancing in 3s.", variant: "default" });
+        synthesisFallbackTimeoutId = setTimeout(() => {
+          if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+            handleNextLine();
+          }
+        }, 3000);
+      }
+    } else if (currentLine.speaker === 'USER' && feedbackValue?.isCorrect && !processingAi) {
+      userAdvanceTimeoutId = setTimeout(() => {
+         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current) {
             handleNextLine();
          }
-      }, 1500); 
+      }, 1500);
     }
-    return () => clearTimeout(timerId);
-  }, [currentLineIndex, feedback, isProcessingAi, handleNextLine, isScenarioFinished]); // currentLineIndex is used to re-evaluate when dialogue line changes
+    return cleanup;
+  }, [currentLineIndex, handleNextLine, toast, feedback, isProcessingAi]);
 
 
   if (isScenarioFinished) {
@@ -251,8 +308,15 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }
   
   if (!currentDialogueLine) {
-    return <p>Loading scenario...</p>;
+    // This should ideally not happen if scenarios are loaded, but good for safety.
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+        <p className="text-muted-foreground">Loading scenario content...</p>
+      </div>
+    );
   }
+
 
   const ScenarioIcon = getIconByName(scenario.iconName);
   const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
@@ -346,4 +410,3 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     </div>
   );
 }
-
