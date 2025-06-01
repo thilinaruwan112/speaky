@@ -178,7 +178,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]);
+  }, [toast]); // Removed isRecording from dependency array as it caused re-initialization issues.
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -252,7 +252,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings or check if another app is using the mic.", variant: "destructive" });
       setIsRecording(false); 
     }
-  }, [toast, isRecording]); 
+  }, [toast, isRecording]); // isRecording is needed here to avoid stale closure issues for the log
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
@@ -263,13 +263,14 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const speakAssistantLine = useCallback(() => {
     if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !('speechSynthesis' in window)) {
+      // If not assistant or no speech synthesis, try to advance if it was an assistant line (e.g. empty line)
       if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { 
-        setTimeout(() => handleNextLine(), 1000); 
+        setTimeout(() => handleNextLine(), 1000); // Give a brief moment for UI
       }
       return;
     }
     if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis.cancel(); // Stop any previous speech
     }
     const utterance = new SpeechSynthesisUtterance(currentDialogueLineRef.current.text);
     utterance.lang = 'en-US';
@@ -280,7 +281,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
     };
     utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-      console.error('SpeechSynthesis Error:', event.error);
+      console.error('SpeechSynthesis Error:', event.error, (event as any).message);
       if (event.error !== 'interrupted') {
         toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
         setTimeout(() => {
@@ -310,13 +311,14 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     
     if (currentDialogueLine.speaker === 'ASSISTANT') {
       if (isMobileView && !assistantLineManuallyPlayed) {
-        // On mobile, wait for user to click play
+        // On mobile, wait for user to click play. The button sets assistantLineManuallyPlayed to true, which triggers this effect again.
       } else {
         // On desktop, or if mobile user clicked play
         speakAssistantLine();
       }
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
       userAdvanceTimeoutId = setTimeout(() => {
+         // Check refs here to ensure we are using the latest values inside the timeout
          if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current) {
             handleNextLine();
          }
@@ -328,6 +330,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const handlePlayAssistantLine = () => {
     setAssistantLineManuallyPlayed(true);
+    // speakAssistantLine(); // Let the useEffect handle calling speakAssistantLine due to state change
   };
 
 
@@ -455,7 +458,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               <Button 
                 onClick={handleNextLine} 
                 className="text-lg px-6 py-5" 
-                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking && !assistantLineManuallyPlayedRef.current)}
+                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking)}
               >
                 Next <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
@@ -466,3 +469,4 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     </div>
   );
 }
+
