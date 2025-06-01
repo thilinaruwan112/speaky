@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
+import { getIconByName } from '@/lib/icons';
 
 interface ScenarioCardProps {
   scenario: Scenario;
 }
 
 export function ScenarioCard({ scenario }: ScenarioCardProps) {
-  const IconComponent = scenario.icon;
+  const IconComponent = getIconByName(scenario.iconName);
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="flex flex-row items-center gap-4 pb-4">

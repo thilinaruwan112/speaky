@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Mic, MicOff, Square, ChevronRight, CheckCircle2, XCircle, Loader2, Volume2, UserCircle2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { getIconByName } from '@/lib/icons';
 
 interface PracticePageClientProps {
   scenario: Scenario;
@@ -190,7 +191,8 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     return <p>Loading scenario...</p>;
   }
 
-  const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : scenario.icon;
+  const ScenarioIcon = getIconByName(scenario.iconName);
+  const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
   const cardBorderColor = currentDialogueLine.speaker === 'USER' ? 'border-primary' : 'border-gray-300';
 
   return (

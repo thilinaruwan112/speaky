@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react';
-import { ShoppingBasket, Coffee, Users, Briefcase, Plane } from 'lucide-react';
 
 export interface DialogueLine {
   id: string;
@@ -11,7 +10,7 @@ export interface Scenario {
   id: string;
   title: string;
   description: string;
-  icon: LucideIcon;
+  iconName: string; // Changed from icon: LucideIcon
   dialogue: DialogueLine[];
 }
 
@@ -20,7 +19,7 @@ export const scenarios: Scenario[] = [
     id: 'grocery-store',
     title: 'At the Grocery Store',
     description: 'Practice buying items at a grocery store.',
-    icon: ShoppingBasket,
+    iconName: 'ShoppingBasket',
     dialogue: [
       { id: 'g1', speaker: 'ASSISTANT', text: "Hello! Can I help you find something?" },
       { id: 'g2', speaker: 'USER', text: "Yes, I'm looking for apples." },
@@ -34,7 +33,7 @@ export const scenarios: Scenario[] = [
     id: 'ordering-coffee',
     title: 'Ordering Coffee',
     description: 'Practice ordering your favorite coffee.',
-    icon: Coffee,
+    iconName: 'Coffee',
     dialogue: [
       { id: 'c1', speaker: 'ASSISTANT', text: "Hi there! What can I get for you?" },
       { id: 'c2', speaker: 'USER', text: "I'd like a medium latte, please." },
@@ -48,7 +47,7 @@ export const scenarios: Scenario[] = [
     id: 'meeting-someone',
     title: 'Meeting Someone New',
     description: 'Practice introducing yourself and making small talk.',
-    icon: Users,
+    iconName: 'Users',
     dialogue: [
       { id: 'm1', speaker: 'ASSISTANT', text: "Hello, I don't think we've met. I'm Alex." },
       { id: 'm2', speaker: 'USER', text: "Hi Alex, I'm [Your Name]. Nice to meet you." },
@@ -62,7 +61,7 @@ export const scenarios: Scenario[] = [
     id: 'job-interview',
     title: 'Job Interview Basics',
     description: 'Practice common job interview questions.',
-    icon: Briefcase,
+    iconName: 'Briefcase',
     dialogue: [
       { id: 'j1', speaker: 'ASSISTANT', text: "Welcome! Please, tell me a little about yourself." },
       { id: 'j2', speaker: 'USER', text: "Thank you. I have five years of experience in project management." },
@@ -76,7 +75,7 @@ export const scenarios: Scenario[] = [
     id: 'at-the-airport',
     title: 'At the Airport',
     description: 'Practice navigating check-in and boarding.',
-    icon: Plane,
+    iconName: 'Plane',
     dialogue: [
       { id: 'a1', speaker: 'ASSISTANT', text: "Good morning! May I see your passport and ticket, please?" },
       { id: 'a2', speaker: 'USER', text: "Yes, here they are." },
