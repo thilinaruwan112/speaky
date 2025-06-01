@@ -31,6 +31,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const [showUserMicCheck, setShowUserMicCheck] = useState(true);
   const [finalTranscriptProcessingTrigger, setFinalTranscriptProcessingTrigger] = useState(0);
+  const [hasSubmittedTranscription, setHasSubmittedTranscription] = useState(false);
 
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -52,7 +53,8 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setTranscribedText('');
       setInterimTranscription('');
       setFeedback(null);
-      setShowUserMicCheck(true); // Reset mic check visibility for USER lines
+      setShowUserMicCheck(true);
+      setHasSubmittedTranscription(false); // Reset for the new line
     } else {
       setCurrentLineIndex(prev => prev + 1); // Trigger scenario finished state
     }
@@ -105,15 +107,16 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
       
       toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
-      setIsRecording(false); // Ensure recording stops on error
-      if (currentDialogueLine?.speaker === 'USER' && !feedback) { // Provide feedback if user was trying to speak
+      setIsRecording(false);
+      if (currentDialogueLine?.speaker === 'USER' && !feedback) {
         setFeedback({ isCorrect: false, message: errorMessage });
+        setHasSubmittedTranscription(true); // Mark as "processed" to avoid loop
       }
     };
     
     recognition.onend = () => {
       setIsRecording(false);
-      setFinalTranscriptProcessingTrigger(prev => prev + 1); // Trigger processing
+      setFinalTranscriptProcessingTrigger(prev => prev + 1); 
     };
 
     return () => {
@@ -124,18 +127,18 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         recognitionRef.current.stop();
       }
     };
-  }, [toast, currentDialogueLine, feedback]); // Added currentDialogueLine and feedback
+  }, [toast, currentDialogueLine, feedback]);
 
   const processTranscription = useCallback(async (textToProcess: string) => {
     if (!currentDialogueLine || currentDialogueLine.speaker !== 'USER' || !textToProcess.trim()) {
-      if (currentDialogueLine?.speaker === 'USER' && !textToProcess.trim() && !feedback) {
-         // If it's user's turn and no text was captured, provide feedback.
+       if (currentDialogueLine?.speaker === 'USER' && !textToProcess.trim()) {
          setFeedback({ isCorrect: false, message: 'No speech was captured. Try speaking clearly.' });
-      }
+         // setHasSubmittedTranscription is handled by the caller useEffect
+       }
       return;
     }
     setIsProcessingAi(true);
-    setFeedback(null); // Clear previous feedback before new analysis
+    setFeedback(null); 
     try {
       const result = await analyzePronunciation({
         expectedSentence: currentDialogueLine.text,
@@ -152,23 +155,26 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } finally {
       setIsProcessingAi(false);
     }
-  }, [currentDialogueLine, toast, feedback]); // Added feedback to dependencies
+  }, [currentDialogueLine, toast]);
 
 
   useEffect(() => {
-    // This effect handles processing when recognition.onend fires.
-    if (finalTranscriptProcessingTrigger === 0 || isRecording) {
-      return; // Initial state or still recording
+    if (finalTranscriptProcessingTrigger === 0 || isRecording || hasSubmittedTranscription) {
+      return; 
     }
 
     const textToProcess = transcribedText.trim();
     if (textToProcess) {
+      setHasSubmittedTranscription(true); 
       processTranscription(textToProcess);
-    } else if (!feedback && currentDialogueLine?.speaker === 'USER') { 
-      // If no text, not already processing, and no feedback yet for this user turn
-      setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
+    } else if (currentDialogueLine?.speaker === 'USER') { 
+      // Only set this feedback if it hasn't been set by onerror and not submitted
+      if (!feedback) { 
+          setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
+      }
+      setHasSubmittedTranscription(true);
     }
-  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, feedback, currentDialogueLine]);
+  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, currentDialogueLine, hasSubmittedTranscription, feedback]);
 
 
   const handleStartRecording = useCallback(async () => {
@@ -182,6 +188,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setTranscribedText('');
       setInterimTranscription('');
       setFeedback(null);
+      setHasSubmittedTranscription(false); // Reset before starting new recording
       setIsRecording(true);
       recognitionRef.current.start();
     } catch (err) {
@@ -192,29 +199,27 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
-      recognitionRef.current.stop(); // This will trigger onend, then the useEffect for processing
+      recognitionRef.current.stop(); 
     }
   }, [isRecording]);
 
   useEffect(() => {
-    // Auto-advance logic
     if (isScenarioFinished || !currentDialogueLine) return;
 
     let timerId: NodeJS.Timeout;
 
     if (currentDialogueLine.speaker === 'ASSISTANT') {
       timerId = setTimeout(() => {
-        // Check again in case state changed rapidly
         if (currentDialogueLine?.speaker === 'ASSISTANT' && !isScenarioFinished) {
           handleNextLine();
         }
-      }, 3000); // 3 seconds for assistant lines
+      }, 3000); 
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi) {
       timerId = setTimeout(() => {
          if (feedback?.isCorrect && currentDialogueLine?.speaker === 'USER' && !isScenarioFinished) {
             handleNextLine();
          }
-      }, 1500); // 1.5 seconds delay after correct user pronunciation
+      }, 1500); 
     }
     return () => clearTimeout(timerId);
   }, [currentDialogueLine, feedback, isProcessingAi, handleNextLine, isScenarioFinished]);
@@ -246,7 +251,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const showNextButton = 
     (currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi) ||
-    (currentDialogueLine.speaker === 'USER' && feedback && !feedback.isCorrect && !isProcessingAi);
+    (currentDialogueLine.speaker === 'USER' && feedback && !feedback.isCorrect && !isProcessingAi && hasSubmittedTranscription);
 
   return (
     <div className="flex flex-col items-center p-4 md:p-8 min-h-full">
@@ -273,7 +278,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 {!isRecording ? (
-                  <Button onClick={handleStartRecording} disabled={isProcessingAi || isRecording} className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90">
+                  <Button 
+                    onClick={handleStartRecording} 
+                    disabled={isProcessingAi || isRecording || (hasSubmittedTranscription && !feedback?.isCorrect)} 
+                    className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90"
+                  >
                     <Mic className="mr-2 h-6 w-6" /> Start Recording
                   </Button>
                 ) : (
@@ -286,7 +295,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               {(isRecording || transcribedText || interimTranscription) && (
                  <div className="mt-4 p-4 border rounded-md bg-background min-h-[60px]">
                     <p className="text-sm text-muted-foreground">
-                        {isRecording && !interimTranscription && !transcribedText ? "Listening..." : "You said:"}
+                        {isRecording && !interimTranscription && !transcribedText && !transcribedText && !feedback ? "Listening..." : "You said:"}
                     </p>
                     <p className="text-lg">
                         {transcribedText}
