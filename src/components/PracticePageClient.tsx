@@ -28,7 +28,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const [transcribedText, setTranscribedText] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [isProcessingAi, setIsProcessingAi] = useState(false); // Note: analyzePronunciation is non-AI now, but variable name persists.
+  const [isProcessingAi, setIsProcessingAi] = useState(false);
   const [showUserMicCheck, setShowUserMicCheck] = useState(true);
   const [finalTranscriptProcessingTrigger, setFinalTranscriptProcessingTrigger] = useState(0);
   const [hasSubmittedTranscription, setHasSubmittedTranscription] = useState(false);
@@ -74,10 +74,8 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [currentLineIndex, scenario.dialogue.length]);
 
 
-  // Effect to initialize and manage SpeechRecognition instance
   useEffect(() => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      // Toast moved to handleStartRecording if initialization fails there
       return;
     }
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -144,7 +142,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]); // Only depends on toast for initial setup
+  }, [toast]); 
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -194,7 +192,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
 
   const handleStartRecording = useCallback(async () => {
-    if (!recognitionRef.current) { // Check if SpeechRecognition was initialized
+    if (!recognitionRef.current) { 
       toast({
         title: "Browser Not Supported",
         description: "Speech recognition is not supported in your browser. Please try Chrome or Edge.",
@@ -226,12 +224,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [isRecording]);
 
   useEffect(() => {
-    const currentLine = currentDialogueLineRef.current;
-    const feedbackValue = feedbackRef.current; 
-    const processing = isProcessingAiRef.current; 
-    const scenarioFinished = isScenarioFinishedRef.current; 
-
-    if (scenarioFinished || !currentLine) {
+    if (isScenarioFinished || !currentDialogueLine) {
       return;
     }
 
@@ -248,13 +241,13 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
     };
 
-    if (currentLine.speaker === 'ASSISTANT') {
+    if (currentDialogueLine.speaker === 'ASSISTANT') {
       if ('speechSynthesis' in window) {
         assistantSpeechTimeoutId = setTimeout(() => {
           if (window.speechSynthesis.speaking) { 
             window.speechSynthesis.cancel();
           }
-          const utterance = new SpeechSynthesisUtterance(currentLine.text);
+          const utterance = new SpeechSynthesisUtterance(currentDialogueLine.text);
           utterance.lang = 'en-US';
           utterance.onend = () => {
             if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
@@ -280,7 +273,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
           }
         }, 3000);
       }
-    } else if (currentLine.speaker === 'USER' && feedbackValue?.isCorrect && !processing) {
+    } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi) {
       userAdvanceTimeoutId = setTimeout(() => {
          if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current) {
             handleNextLine();
@@ -288,7 +281,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }, 1500);
     }
     return cleanup;
-  }, [currentLineIndex, handleNextLine, toast]); 
+  }, [currentLineIndex, handleNextLine, toast, feedback, isScenarioFinished, currentDialogueLine, isProcessingAi]);
 
 
   if (isScenarioFinished) {
