@@ -44,6 +44,7 @@ export async function analyzePronunciation(
 
 const analyzePronunciationPrompt = ai.definePrompt({
   name: 'analyzePronunciationPrompt',
+  model: 'googleai/gemini-pro', // Explicitly use gemini-pro for this prompt
   input: {schema: AnalyzePronunciationInputSchema},
   prompt: `You are an AI assistant. Your task is to compare two sentences: an "Expected Sentence" and a "Transcribed Sentence".
 
@@ -88,7 +89,7 @@ const analyzePronunciationFlow = ai.defineFlow(
             feedback: "That's not quite right. Please try matching the sentence more closely.",
           };
         } else {
-          console.error('AI model returned unexpected text for analyzePronunciationPrompt:', rawResponseText, 'Input:', input);
+          console.error('AI model returned unexpected text for analyzePronunciationPrompt:', rawResponseText, 'Input:', input, 'Full response object:', response);
           return {
             isCorrect: false,
             feedback: "I couldn't quite understand if that was correct. Please try speaking again clearly.",
@@ -102,11 +103,17 @@ const analyzePronunciationFlow = ai.defineFlow(
         };
       }
     } catch (e) {
-      console.error('Error within analyzePronunciationFlow or prompt execution:', e, 'Input:', input);
-      // Log more details if 'e' is an Error object
+      console.error('Critical error within analyzePronunciationFlow or prompt execution. Input:', input);
       if (e instanceof Error) {
-        console.error('Error message:', e.message);
-        console.error('Error stack:', e.stack);
+        console.error('Error Name:', e.name);
+        console.error('Error Message:', e.message);
+        console.error('Error Stack:', e.stack);
+        // Attempt to log more details if available (e.g., from a Genkit-specific error)
+        if ('details' in e) {
+          console.error('Error Details:', (e as any).details);
+        }
+      } else {
+        console.error('Caught a non-Error object:', e);
       }
       return {
         isCorrect: false,
@@ -115,3 +122,4 @@ const analyzePronunciationFlow = ai.defineFlow(
     }
   }
 );
+
