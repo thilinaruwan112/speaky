@@ -63,7 +63,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   useEffect(() => {
     const checkMobile = () => setIsMobileView(window.innerWidth < 768);
-    checkMobile();
+    checkMobile(); // Initial check
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -177,7 +177,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]); // isRecording removed as per undo, re-verify if needed
+  }, [toast]); 
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -280,14 +280,16 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
     };
     utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-      console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-      if (event.error !== 'interrupted') { 
+      if (event.error !== 'interrupted') {
+        console.error('SpeechSynthesis Error:', event.error, (event as any).message);
         toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
         setTimeout(() => {
            if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
              handleNextLine();
            }
          }, 3000);
+      } else {
+        console.log('SpeechSynthesis was interrupted, this is often normal. Message:', (event as any).message);
       }
     };
     window.speechSynthesis.speak(utterance);
@@ -309,7 +311,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
     
     if (currentDialogueLine.speaker === 'ASSISTANT') {
-       if (assistantLineManuallyPlayed) { // Only speak if manually played (or on desktop implicitly true)
+       if (assistantLineManuallyPlayed) { 
         speakAssistantLine();
       }
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
