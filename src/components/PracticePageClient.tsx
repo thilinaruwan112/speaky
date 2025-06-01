@@ -51,7 +51,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const isProcessingAiRef = useRef(isProcessingAi);
   const isScenarioFinishedRef = useRef(isScenarioFinished);
   const hasSubmittedTranscriptionRef = useRef(hasSubmittedTranscription);
-  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed); // Keep ref for logging if needed
+  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed); 
 
   useEffect(() => { currentDialogueLineRef.current = currentDialogueLine; }, [currentDialogueLine]);
   useEffect(() => { feedbackRef.current = feedback; }, [feedback]);
@@ -72,7 +72,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const handleNextLine = useCallback(() => {
     if (isScenarioFinishedRef.current) return;
 
-    if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+    if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
       window.speechSynthesis.cancel();
     }
 
@@ -91,7 +91,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
 
   useEffect(() => {
-    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+    if (typeof window === 'undefined' || !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       toast({
         title: "Browser Not Supported",
         description: "Speech recognition is not supported in your browser. Please try Chrome or Edge.",
@@ -173,11 +173,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
             console.warn("Error aborting recognition on unmount:", e);
         }
       }
-      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]);
+  }, [toast]); // isRecording removed as per undo, re-verify if needed
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -261,16 +261,13 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [isRecording]);
 
   const speakAssistantLine = useCallback(() => {
-    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !('speechSynthesis' in window)) {
+    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !(typeof window !== 'undefined' && 'speechSynthesis' in window)) {
       if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { 
         setTimeout(() => handleNextLine(), 1000);
       }
       return;
     }
     if (window.speechSynthesis.speaking) {
-      // Already speaking, perhaps from a quick re-trigger. Avoid starting new speech.
-      // Or, if a different line, cancel previous. For now, we assume it's the same if this is called again quickly.
-      // Consider adding logic if it needs to interrupt and restart for a *new* line.
       console.log("Speech synthesis already active, not starting new utterance.");
       return;
     }
@@ -284,7 +281,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
     utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
       console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-      if (event.error !== 'interrupted') { // Do not show toast or force advance for interruptions
+      if (event.error !== 'interrupted') { 
         toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
         setTimeout(() => {
            if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
@@ -306,14 +303,13 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
     const cleanup = () => {
       if (userAdvanceTimeoutId) clearTimeout(userAdvanceTimeoutId);
-      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+      if (typeof window !== 'undefined' && window.speechSynthesis?.speaking) {
         window.speechSynthesis.cancel();
       }
     };
     
     if (currentDialogueLine.speaker === 'ASSISTANT') {
-      // Speak assistant line only if assistantLineManuallyPlayed is true
-      if (assistantLineManuallyPlayed) {
+       if (assistantLineManuallyPlayed) { // Only speak if manually played (or on desktop implicitly true)
         speakAssistantLine();
       }
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
@@ -361,14 +357,15 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
   const cardBorderColor = currentDialogueLine.speaker === 'USER' ? 'border-primary' : 'border-gray-300';
 
-  // Show "Play Assistant Line" button if it's ASSISTANT's turn, line hasn't been manually played, and assistant isn't already speaking.
+  const assistantIsNotSpeaking = typeof window !== 'undefined' ? !window.speechSynthesis?.speaking : true;
+
   const showPlayAssistantButton = 
     currentDialogueLine.speaker === 'ASSISTANT' && 
     !assistantLineManuallyPlayed && 
-    !window.speechSynthesis?.speaking;
+    assistantIsNotSpeaking;
 
   const showNextButton = 
-    (!showPlayAssistantButton && currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi && !window.speechSynthesis?.speaking) ||
+    (!showPlayAssistantButton && currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi && assistantIsNotSpeaking) ||
     (currentDialogueLine.speaker === 'USER' && feedback && !feedback.isCorrect && !isProcessingAi && hasSubmittedTranscription);
 
 
@@ -460,7 +457,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               <Button 
                 onClick={handleNextLine} 
                 className="text-lg px-6 py-5" 
-                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking)}
+                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && (typeof window !== 'undefined' && window.speechSynthesis?.speaking))}
               >
                 Next <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
