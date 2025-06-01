@@ -133,7 +133,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     if (!currentDialogueLine || currentDialogueLine.speaker !== 'USER' || !textToProcess.trim()) {
        if (currentDialogueLine?.speaker === 'USER' && !textToProcess.trim()) {
          setFeedback({ isCorrect: false, message: 'No speech was captured. Try speaking clearly.' });
-         // setHasSubmittedTranscription is handled by the caller useEffect
        }
       return;
     }
@@ -168,7 +167,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setHasSubmittedTranscription(true); 
       processTranscription(textToProcess);
     } else if (currentDialogueLine?.speaker === 'USER') { 
-      // Only set this feedback if it hasn't been set by onerror and not submitted
       if (!feedback) { 
           setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
       }
@@ -188,7 +186,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setTranscribedText('');
       setInterimTranscription('');
       setFeedback(null);
-      setHasSubmittedTranscription(false); // Reset before starting new recording
+      setHasSubmittedTranscription(false); 
       setIsRecording(true);
       recognitionRef.current.start();
     } catch (err) {
@@ -280,7 +278,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
                 {!isRecording ? (
                   <Button 
                     onClick={handleStartRecording} 
-                    disabled={isProcessingAi || isRecording || (hasSubmittedTranscription && !feedback?.isCorrect)} 
+                    disabled={isProcessingAi || isRecording || (hasSubmittedTranscription && feedback?.isCorrect === true)} 
                     className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90"
                   >
                     <Mic className="mr-2 h-6 w-6" /> Start Recording
