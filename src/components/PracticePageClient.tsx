@@ -51,16 +51,15 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const isProcessingAiRef = useRef(isProcessingAi);
   const isScenarioFinishedRef = useRef(isScenarioFinished);
   const hasSubmittedTranscriptionRef = useRef(hasSubmittedTranscription);
-  const isMobileViewRef = useRef(isMobileView);
-  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed);
+  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed); // Keep ref for logging if needed
 
   useEffect(() => { currentDialogueLineRef.current = currentDialogueLine; }, [currentDialogueLine]);
   useEffect(() => { feedbackRef.current = feedback; }, [feedback]);
   useEffect(() => { isProcessingAiRef.current = isProcessingAi; }, [isProcessingAi]);
   useEffect(() => { isScenarioFinishedRef.current = isScenarioFinished; }, [isScenarioFinished]);
   useEffect(() => { hasSubmittedTranscriptionRef.current = hasSubmittedTranscription; }, [hasSubmittedTranscription]);
-  useEffect(() => { isMobileViewRef.current = isMobileView; }, [isMobileView]);
   useEffect(() => { assistantLineManuallyPlayedRef.current = assistantLineManuallyPlayed; }, [assistantLineManuallyPlayed]);
+
 
   useEffect(() => {
     const checkMobile = () => setIsMobileView(window.innerWidth < 768);
@@ -178,7 +177,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]); // Removed isRecording from dependency array as it caused re-initialization issues.
+  }, [toast]);
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -252,7 +251,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings or check if another app is using the mic.", variant: "destructive" });
       setIsRecording(false); 
     }
-  }, [toast, isRecording]); // isRecording is needed here to avoid stale closure issues for the log
+  }, [toast, isRecording]);
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
@@ -263,14 +262,17 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const speakAssistantLine = useCallback(() => {
     if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !('speechSynthesis' in window)) {
-      // If not assistant or no speech synthesis, try to advance if it was an assistant line (e.g. empty line)
       if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { 
-        setTimeout(() => handleNextLine(), 1000); // Give a brief moment for UI
+        setTimeout(() => handleNextLine(), 1000);
       }
       return;
     }
     if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel(); // Stop any previous speech
+      // Already speaking, perhaps from a quick re-trigger. Avoid starting new speech.
+      // Or, if a different line, cancel previous. For now, we assume it's the same if this is called again quickly.
+      // Consider adding logic if it needs to interrupt and restart for a *new* line.
+      console.log("Speech synthesis already active, not starting new utterance.");
+      return;
     }
     const utterance = new SpeechSynthesisUtterance(currentDialogueLineRef.current.text);
     utterance.lang = 'en-US';
@@ -282,7 +284,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
     utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
       console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-      if (event.error !== 'interrupted') {
+      if (event.error !== 'interrupted') { // Do not show toast or force advance for interruptions
         toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
         setTimeout(() => {
            if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
@@ -310,27 +312,23 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
     
     if (currentDialogueLine.speaker === 'ASSISTANT') {
-      if (isMobileView && !assistantLineManuallyPlayed) {
-        // On mobile, wait for user to click play. The button sets assistantLineManuallyPlayed to true, which triggers this effect again.
-      } else {
-        // On desktop, or if mobile user clicked play
+      // Speak assistant line only if assistantLineManuallyPlayed is true
+      if (assistantLineManuallyPlayed) {
         speakAssistantLine();
       }
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
       userAdvanceTimeoutId = setTimeout(() => {
-         // Check refs here to ensure we are using the latest values inside the timeout
          if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current) {
             handleNextLine();
          }
       }, 1500);
     }
     return cleanup;
-  }, [currentLineIndex, currentDialogueLine, handleNextLine, toast, feedback, isProcessingAi, isScenarioFinished, hasSubmittedTranscription, isMobileView, assistantLineManuallyPlayed, speakAssistantLine]);
+  }, [currentLineIndex, currentDialogueLine, feedback, isProcessingAi, isScenarioFinished, hasSubmittedTranscription, assistantLineManuallyPlayed, handleNextLine, speakAssistantLine, toast]);
 
 
   const handlePlayAssistantLine = () => {
     setAssistantLineManuallyPlayed(true);
-    // speakAssistantLine(); // Let the useEffect handle calling speakAssistantLine due to state change
   };
 
 
@@ -363,7 +361,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
   const cardBorderColor = currentDialogueLine.speaker === 'USER' ? 'border-primary' : 'border-gray-300';
 
-  const showPlayAssistantButton = isMobileView && currentDialogueLine.speaker === 'ASSISTANT' && !assistantLineManuallyPlayed && !window.speechSynthesis?.speaking;
+  // Show "Play Assistant Line" button if it's ASSISTANT's turn, line hasn't been manually played, and assistant isn't already speaking.
+  const showPlayAssistantButton = 
+    currentDialogueLine.speaker === 'ASSISTANT' && 
+    !assistantLineManuallyPlayed && 
+    !window.speechSynthesis?.speaking;
 
   const showNextButton = 
     (!showPlayAssistantButton && currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi && !window.speechSynthesis?.speaking) ||
