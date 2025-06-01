@@ -190,10 +190,10 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       return;
     }
     
-    setIsProcessingAi(true);
-    isProcessingAiRef.current = true;
     setFeedback(null); 
     feedbackRef.current = null;
+    setIsProcessingAi(true);
+    isProcessingAiRef.current = true;
 
     try {
       const result = await analyzePronunciation({
@@ -326,7 +326,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         if (currentFinalTranscriptThisEvent.trim() !== "") {
           const newFullFinalText = (latestTranscriptionRef.current + currentFinalTranscriptThisEvent.trim() + ' ').trimStart();
           setTranscribedText(newFullFinalText);
-          latestTranscriptionRef.current = newFullFinalText; 
+          latestTranscriptionRef.current = newFullFinalText; // Update ref directly
           setHasRecordedSomething(true);
         } else if (interimDisplay.trim() && !hasRecordedSomething) {
           setHasRecordedSomething(true);
@@ -514,6 +514,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
     };
     window.speechSynthesis.speak(utterance);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMounted, toast, setIsAssistantSpeaking]);
 
 
@@ -599,7 +600,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const showPlayAssistantButton = currentDialogueLine.speaker === 'ASSISTANT'; 
 
   const showNextButton = 
-    (currentDialogueLine.speaker === 'ASSISTANT' && isMobileView && !isAssistantSpeakingRef.current && !isUserLinePlaying) ||
+    (currentDialogueLine.speaker === 'ASSISTANT' && 
+     isMobileView && 
+     assistantLineManuallyPlayedRef.current && 
+     !isAssistantSpeakingRef.current && 
+     !isUserLinePlaying) ||
     (currentDialogueLine.speaker === 'USER' && 
      feedback && !feedback.isCorrectAttempt && 
      !isProcessingAiRef.current && 
@@ -791,5 +796,4 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   );
 }
 
-
-      
+    
