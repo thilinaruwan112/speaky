@@ -366,6 +366,163 @@ export const scenarios: Scenario[] = [
       { id: 'tf5', speaker: 'ASSISTANT', text: "I have a younger sister. She's still in school.", sinhalaTranslation: "මට නංගි කෙනෙක් ඉන්නවා. එයා තාම ඉස්කෝලේ යනවා." },
       { id: 'tf6', speaker: 'USER', text: "That's nice. Family is important.", sinhalaTranslation: "ඒක හොඳයි. පවුල කියන්නේ වැදගත් දෙයක්." }
     ]
+  },
+  // New scenarios start here
+  {
+    id: 'pharmacy-headache',
+    title: 'Pharmacy: Getting Medicine for a Headache',
+    description: 'Practice asking for over-the-counter headache medicine.',
+    iconName: 'ShoppingBasket',
+    dialogue: [
+      { id: 'ph1', speaker: 'USER', text: "Hello, I have a bad headache. What can I take for it?", sinhalaTranslation: "හෙලෝ, මට තද හිසරදයක් තියෙනවා. ඒකට මට මොනවද ගන්න පුළුවන්?" },
+      { id: 'ph2', speaker: 'ASSISTANT', text: "I'm sorry to hear that. We have paracetamol or ibuprofen. Do you have any allergies?", sinhalaTranslation: "ඒක අහන්න කණගාටුයි. අප ළඟ පැරසිටමෝල් හෝ ඉබියුප්‍රොෆෙන් තියෙනවා. ඔබට අසාත්මිකතා තියෙනවද?" },
+      { id: 'ph3', speaker: 'USER', text: "No, I don't have any allergies. Which one is stronger?", sinhalaTranslation: "නැහැ, මට කිසිම අසාත්මිකතාවක් නැහැ. කෝකද සැර වැඩි?" },
+      { id: 'ph4', speaker: 'ASSISTANT', text: "Ibuprofen is generally a bit stronger for pain relief. Would you like that?", sinhalaTranslation: "ඉබියුප්‍රොෆෙන් සාමාන්‍යයෙන් වේදනා නාශකයක් ලෙස ටිකක් සැරයි. ඔබ එයට කැමතිද?" },
+      { id: 'ph5', speaker: 'USER', text: "Yes, please. How much is it?", sinhalaTranslation: "ඔව්, කරුණාකරලා. ඒක කීයද?" },
+      { id: 'ph6', speaker: 'ASSISTANT', text: "That will be 250 rupees for a strip.", sinhalaTranslation: "ඒක තීරුවකට රුපියල් 250ක් වෙනවා." },
+      { id: 'ph7', speaker: 'USER', text: "Okay, I'll take it. Thank you.", sinhalaTranslation: "හරි, මම ඒක ගන්නම්. ස්තූතියි." },
+      { id: 'ph8', speaker: 'ASSISTANT', text: "You're welcome. I hope you feel better soon.", sinhalaTranslation: "සුභ පැතුම්. ඔබට ඉක්මනින් සනීප වේවායි ප්‍රාර්ථනා කරනවා." }
+    ]
+  },
+  {
+    id: 'clothing-store-assistance',
+    title: 'Clothing Store: Asking for Help',
+    description: 'Practice asking for assistance to find an item or size.',
+    iconName: 'ShoppingBasket',
+    dialogue: [
+      { id: 'csa1', speaker: 'USER', text: "Excuse me, can you help me please?", sinhalaTranslation: "සමාවෙන්න, කරුණාකර මට උදව් කරන්න පුලුවන්ද?" },
+      { id: 'csa2', speaker: 'ASSISTANT', text: "Of course, how can I help you?", sinhalaTranslation: "ඇත්තෙන්ම, මම ඔබට උදව් කරන්නේ කොහොමද?" },
+      { id: 'csa3', speaker: 'USER', text: "I am looking for a blue sweater. Do you have any?", sinhalaTranslation: "මම නිල් පාට ස්වෙටර් එකක් හොයනවා. ඔබ ළඟ තියෙනවද?" },
+      { id: 'csa4', speaker: 'ASSISTANT', text: "Yes, we have some over here. What size are you looking for?", sinhalaTranslation: "ඔව්, අප ළඟ මෙතන තියෙනවා. ඔබ හොයන්නේ මොන සයිස් එකද?" },
+      { id: 'csa5', speaker: 'USER', text: "I think I need a large size.", sinhalaTranslation: "මම හිතන්නේ මට ලොකු සයිස් එකක් ඕන." },
+      { id: 'csa6', speaker: 'ASSISTANT', text: "Okay, here are our large blue sweaters. This one is very popular.", sinhalaTranslation: "හරි, මෙන්න අපේ ලොකු නිල් ස්වෙටර්. මේක හරිම ජනප්‍රියයි." },
+      { id: 'csa7', speaker: 'USER', text: "Oh, that looks nice. How much is it?", sinhalaTranslation: "ආ, ඒක ලස්සනයි වගේ. ඒක කීයද?" },
+      { id: 'csa8', speaker: 'ASSISTANT', text: "It's 2000 rupees.", sinhalaTranslation: "ඒක රුපියල් 2000යි." },
+      { id: 'csa9', speaker: 'USER', text: "Thank you for your help.", sinhalaTranslation: "ඔබගේ උදව්වට ස්තූතියි." }
+    ]
+  },
+  {
+    id: 'post-office-mailing-letter',
+    title: 'Post Office: Mailing a Letter',
+    description: 'Practice mailing a letter and buying stamps.',
+    iconName: 'Briefcase',
+    dialogue: [
+      { id: 'po1', speaker: 'USER', text: "Hello, I would like to mail this letter to Colombo.", sinhalaTranslation: "හෙලෝ, මට මේ ලියුම කොළඹට යවන්න ඕන." },
+      { id: 'po2', speaker: 'ASSISTANT', text: "Okay, do you need a stamp for it?", sinhalaTranslation: "හරි, ඔබට ඒකට මුද්දරයක් ඕනද?" },
+      { id: 'po3', speaker: 'USER', text: "Yes, please. How much is a stamp for a local letter?", sinhalaTranslation: "ඔව්, කරුණාකරලා. දේශීය ලියුමකට මුද්දරයක් කීයද?" },
+      { id: 'po4', speaker: 'ASSISTANT', text: "It's 50 rupees for a standard local letter.", sinhalaTranslation: "සාමාන්‍ය දේශීය ලියුමකට ඒක රුපියල් 50යි." },
+      { id: 'po5', speaker: 'USER', text: "Okay, I'll take one stamp. And can I also buy two extra stamps?", sinhalaTranslation: "හරි, මම එක මුද්දරයක් ගන්නම්. මට තව අමතර මුද්දර දෙකක් ගන්න පුලුවන්ද?" },
+      { id: 'po6', speaker: 'ASSISTANT', text: "Certainly. So that's three stamps in total. That will be 150 rupees.", sinhalaTranslation: "ඇත්තෙන්ම. එතකොට ඔක්කොම මුද්දර තුනයි. ඒක රුපියල් 150ක් වෙනවා." },
+      { id: 'po7', speaker: 'USER', text: "Here you go. Thank you.", sinhalaTranslation: "මෙන්න. ස්තූතියි." }
+    ]
+  },
+  {
+    id: 'simple-phone-call-friend',
+    title: 'Phone Call: Catching Up with a Friend',
+    description: 'Practice a simple phone call to a friend.',
+    iconName: 'Users',
+    dialogue: [
+      { id: 'pc1', speaker: 'USER', text: "Hi Nimal, it's [Your Name]. How are you?", sinhalaTranslation: "හායි නිමල්, මේ [ඔබේ නම]. කොහොමද ඔයාට?" },
+      { id: 'pc2', speaker: 'ASSISTANT', text: "Hey [Your Name]! I'm good, thanks. How about you?", sinhalaTranslation: "හේ [ඔබේ නම]! මම හොඳින්, ස්තූතියි. ඔයා කොහොමද?" },
+      { id: 'pc3', speaker: 'USER', text: "I'm doing well. I was wondering if you are free on Saturday.", sinhalaTranslation: "මම හොඳින් ඉන්නවා. මම කල්පනා කරමින් හිටියේ ඔයා සෙනසුරාදා නිදහස්ද කියලා." },
+      { id: 'pc4', speaker: 'ASSISTANT', text: "Saturday? Yes, I think I'm free in the afternoon. Why?", sinhalaTranslation: "සෙනසුරාදා? ඔව්, මම හිතන්නේ මම දවල්ට නිදහස්. ඇයි?" },
+      { id: 'pc5', speaker: 'USER', text: "Maybe we can go for a coffee or something?", sinhalaTranslation: "සමහරවිට අපිට කෝපි එකකට හරි මොකකට හරි යන්න පුලුවන්ද?" },
+      { id: 'pc6', speaker: 'ASSISTANT', text: "That sounds great! Let's do that. What time?", sinhalaTranslation: "ඒක නියම අදහසක්! අපි එහෙම කරමු. කීයටද?" },
+      { id: 'pc7', speaker: 'USER', text: "How about 3 PM at the usual cafe?", sinhalaTranslation: "හවස 3ට අපි නිතර යන කැෆේ එකේදී කොහොමද?" },
+      { id: 'pc8', speaker: 'ASSISTANT', text: "Perfect! See you then.", sinhalaTranslation: "නියමයි! එහෙනම් එතකොට හමුවෙමු." }
+    ]
+  },
+  {
+    id: 'favorite-food-talk',
+    title: 'Talking About Favorite Food',
+    description: 'Practice describing your favorite food and why you like it.',
+    iconName: 'Coffee',
+    dialogue: [
+      { id: 'ff1', speaker: 'ASSISTANT', text: "What's your favorite food to eat, [Your Name]?", sinhalaTranslation: "[ඔබේ නම], ඔයා කන්න කැමතිම කෑම මොකක්ද?" },
+      { id: 'ff2', speaker: 'USER', text: "My favorite food is rice and curry.", sinhalaTranslation: "මගේ කැමතිම කෑම බතුයි ව්‍යංජනයි." },
+      { id: 'ff3', speaker: 'ASSISTANT', text: "Oh, that's a classic Sri Lankan dish! Why do you like it so much?", sinhalaTranslation: "ආ, ඒක සම්භාව්‍ය ශ්‍රී ලාංකික කෑමක්! ඔයා ඒකට ඇයි මෙච්චර කැමති?" },
+      { id: 'ff4', speaker: 'USER', text: "I like it because it has many different flavors and it's very satisfying.", sinhalaTranslation: "මම ඒකට කැමතියි මොකද ඒකේ විවිධ රස තියෙනවා, ඒ වගේම ඒක හරිම තෘප්තිමත්." },
+      { id: 'ff5', speaker: 'ASSISTANT', text: "That's true. Do you have a favorite curry to go with it?", sinhalaTranslation: "ඒක ඇත්ත. ඔයාට ඒත් එක්ක කන්න කැමතිම ව්‍යංජනයක් තියෙනවද?" },
+      { id: 'ff6', speaker: 'USER', text: "Yes, I love chicken curry and dhal curry the most.", sinhalaTranslation: "ඔව්, මම වැඩියෙන්ම ආස චිකන් කරියටයි පරිප්පු හොද්දටයි." },
+      { id: 'ff7', speaker: 'ASSISTANT', text: "Sounds delicious! Now I'm hungry.", sinhalaTranslation: "රසයි වගේ! දැන් මටත් බඩගිනියි." },
+      { id: 'ff8', speaker: 'USER', text: "Me too! Maybe we should get some later.", sinhalaTranslation: "මටත්! සමහරවිට අපි පස්සේ ටිකක් කමු." }
+    ]
+  },
+  {
+    id: 'describing-your-day',
+    title: 'Describing Your Day (Simple)',
+    description: 'Practice talking about your daily routine in simple terms.',
+    iconName: 'UserCircle2',
+    dialogue: [
+      { id: 'dyd1', speaker: 'ASSISTANT', text: "Hi [Your Name]! How was your day today?", sinhalaTranslation: "හායි [ඔබේ නම]! ඔයාගේ දවස අද කොහොමද?" },
+      { id: 'dyd2', speaker: 'USER', text: "It was good, thank you. I woke up early this morning.", sinhalaTranslation: "ඒක හොඳයි, ස්තූතියි. මම අද උදේ පාන්දරින් නැගිට්ටා." },
+      { id: 'dyd3', speaker: 'ASSISTANT', text: "Oh, really? What did you do after that?", sinhalaTranslation: "ආ, ඇත්තද? ඊට පස්සේ ඔයා මොකද කලේ?" },
+      { id: 'dyd4', speaker: 'USER', text: "I had breakfast and then I went to work.", sinhalaTranslation: "මම උදේ කෑම කාලා ඊට පස්සේ වැඩට ගියා." },
+      { id: 'dyd5', speaker: 'ASSISTANT', text: "Was work busy today?", sinhalaTranslation: "අද වැඩ අධිකද?" },
+      { id: 'dyd6', speaker: 'USER', text: "Yes, it was quite busy. After work, I came home and cooked dinner.", sinhalaTranslation: "ඔව්, ඒක තරමක් කාර්යබහුලයි. වැඩ ඉවර වෙලා මම ගෙදර ඇවිත් රෑ කෑම හැදුවා." },
+      { id: 'dyd7', speaker: 'ASSISTANT', text: "Sounds like a productive day! What are you doing now?", sinhalaTranslation: "ඵලදායී දවසක් වගේ! ඔයා දැන් මොකද කරන්නේ?" },
+      { id: 'dyd8', speaker: 'USER', text: "Now I am relaxing and talking to you!", sinhalaTranslation: "දැන් මම විවේක ගනිමින් ඔයා එක්ක කතා කරනවා!" }
+    ]
+  },
+  {
+    id: 'at-the-bus-stop',
+    title: 'At the Bus Stop',
+    description: 'Practice asking about bus arrivals and destinations.',
+    iconName: 'Plane',
+    dialogue: [
+      { id: 'bs1', speaker: 'USER', text: "Excuse me, does the number 176 bus stop here?", sinhalaTranslation: "සමාවෙන්න, අංක 176 බස් එක මෙතන නවත්තනවද?" },
+      { id: 'bs2', speaker: 'ASSISTANT', text: "Yes, it does. It should be here in about ten minutes.", sinhalaTranslation: "ඔව්, නවත්තනවා. ඒක විනාඩි දහයකින් විතර මෙතනට ඒවි." },
+      { id: 'bs3', speaker: 'USER', text: "Great, thank you. Does this bus go to Nugegoda?", sinhalaTranslation: "නියමයි, ස්තූතියි. මේ බස් එක නුගේගොඩට යනවද?" },
+      { id: 'bs4', speaker: 'ASSISTANT', text: "Yes, it goes directly to Nugegoda junction.", sinhalaTranslation: "ඔව්, ඒක කෙලින්ම නුගේගොඩ හන්දියට යනවා." },
+      { id: 'bs5', speaker: 'USER', text: "Perfect. How much is the fare to Nugegoda?", sinhalaTranslation: "නියමයි. නුගේගොඩට ගාස්තුව කීයද?" },
+      { id: 'bs6', speaker: 'ASSISTANT', text: "I think it's around 80 rupees.", sinhalaTranslation: "මම හිතන්නේ ඒක රුපියල් 80ක් විතර." },
+      { id: 'bs7', speaker: 'USER', text: "Okay, thank you for the information.", sinhalaTranslation: "හරි, තොරතුරු වලට ස්තූතියි." }
+    ]
+  },
+  {
+    id: 'borrowing-book-friend',
+    title: 'Borrowing a Book from a Friend',
+    description: 'Practice politely asking to borrow something.',
+    iconName: 'Users',
+    dialogue: [
+      { id: 'bbf1', speaker: 'USER', text: "Hi Sita, do you still have that new novel you were reading?", sinhalaTranslation: "හායි සිතා, ඔයා කියවමින් හිටපු අලුත් නවකතාව තාම ඔයා ළඟ තියෙනවද?" },
+      { id: 'bbf2', speaker: 'ASSISTANT', text: "Yes, I just finished it yesterday. Why do you ask?", sinhalaTranslation: "ඔව්, මම ඒක ඊයේ ඉවර කලා. ඇයි ඔයා අහන්නේ?" },
+      { id: 'bbf3', speaker: 'USER', text: "I was wondering if I could borrow it after you.", sinhalaTranslation: "මම කල්පනා කරමින් හිටියේ ඔයාට පස්සේ මට ඒක ඉල්ලගන්න පුලුවන්ද කියලා." },
+      { id: 'bbf4', speaker: 'ASSISTANT', text: "Of course! You'll enjoy it. I can bring it tomorrow.", sinhalaTranslation: "ඇත්තෙන්ම! ඔයා ඒකට කැමති වේවි. මට ඒක හෙට ගේන්න පුළුවන්." },
+      { id: 'bbf5', speaker: 'USER', text: "That would be great! Thank you so much. I'll return it quickly.", sinhalaTranslation: "ඒක නියමයි! බොහොම ස්තූතියි. මම ඒක ඉක්මනට ආපහු දෙන්නම්." },
+      { id: 'bbf6', speaker: 'ASSISTANT', text: "No problem at all. Enjoy the book!", sinhalaTranslation: "කිසිම ප්‍රශ්නයක් නැහැ. පොත රසවිඳින්න!" }
+    ]
+  },
+  {
+    id: 'planning-birthday-simple',
+    title: 'Planning a Birthday (Simple)',
+    description: 'Practice simple discussions about planning a birthday.',
+    iconName: 'Users',
+    dialogue: [
+      { id: 'pb1', speaker: 'ASSISTANT', text: "My birthday is next week! I need to plan something.", sinhalaTranslation: "මගේ උපන්දිනය ලබන සතියේ! මට මොනවාහරි සැලසුම් කරන්න ඕන." },
+      { id: 'pb2', speaker: 'USER', text: "Happy early birthday! What are you thinking of doing?", sinhalaTranslation: "සුබ කලින් උපන්දිනයක්! ඔයා මොකද කරන්න හිතන්නේ?" },
+      { id: 'pb3', speaker: 'ASSISTANT', text: "Maybe a small party at home. I need to get a cake.", sinhalaTranslation: "සමහරවිට ගෙදර පොඩි පාටියක්. මට කේක් එකක් ගන්න ඕන." },
+      { id: 'pb4', speaker: 'USER', text: "That sounds nice. What kind of cake do you like?", sinhalaTranslation: "ඒක හොඳයි වගේ. ඔයා කැමති මොන වගේ කේක් එකකටද?" },
+      { id: 'pb5', speaker: 'ASSISTANT', text: "I love chocolate cake! Should I invite Ravi too?", sinhalaTranslation: "මම චොකලට් කේක් එකට හරිම ආසයි! මම රවීටත් ආරාධනා කරන්නද?" },
+      { id: 'pb6', speaker: 'USER', text: "Yes, definitely invite Ravi. He will be happy to come.", sinhalaTranslation: "ඔව්, අනිවාර්යයෙන්ම රවීට ආරාධනා කරන්න. එයා එන්න සතුටු වේවි." },
+      { id: 'pb7', speaker: 'ASSISTANT', text: "Okay, great! Thanks for the suggestion.", sinhalaTranslation: "හරි, නියමයි! යෝජනාවට ස්තූතියි." }
+    ]
+  },
+  {
+    id: 'likes-dislikes-activities',
+    title: 'Likes and Dislikes (Activities)',
+    description: 'Practice expressing what activities you like and dislike.',
+    iconName: 'HelpCircle',
+    dialogue: [
+      { id: 'ld1', speaker: 'ASSISTANT', text: "Do you like watching movies, [Your Name]?", sinhalaTranslation: "[ඔබේ නම], ඔයා චිත්‍රපටි බලන්න කැමතිද?" },
+      { id: 'ld2', speaker: 'USER', text: "Yes, I like watching movies a lot. Especially comedy movies.", sinhalaTranslation: "ඔව්, මම චිත්‍රපටි බලන්න ගොඩක් කැමතියි. විශේෂයෙන්ම විකට චිත්‍රපටි." },
+      { id: 'ld3', speaker: 'ASSISTANT', text: "That's nice. What about sports? Do you like playing sports?", sinhalaTranslation: "ඒක හොඳයි. ක්‍රීඩා ගැන මොකද? ඔයා ක්‍රීඩා කරන්න කැමතිද?" },
+      { id: 'ld4', speaker: 'USER', text: "I like watching cricket, but I don't like playing football.", sinhalaTranslation: "මම ක්‍රිකට් බලන්න කැමතියි, ඒත් මම පාපන්දු සෙල්ලම් කරන්න කැමති නැහැ." },
+      { id: 'ld5', speaker: 'ASSISTANT', text: "I see. And what about reading? Do you enjoy reading books?", sinhalaTranslation: "මට තේරෙනවා. කියවීම ගැන මොකද? ඔයා පොත් කියවන්න කැමතිද?" },
+      { id: 'ld6', speaker: 'USER', text: "Yes, I enjoy reading story books. I don't like reading newspapers much.", sinhalaTranslation: "ඔව්, මම කතා පොත් කියවන්න ආසයි. මම පත්තර කියවන්න එච්චර කැමති නැහැ." },
+      { id: 'ld7', speaker: 'ASSISTANT', text: "It's good to know what you like and dislike!", sinhalaTranslation: "ඔයා කැමති මොනවටද අකමැති මොනවටද කියලා දැනගන්න එක හොඳයි!" },
+      { id: 'ld8', speaker: 'USER', text: "Yes, it helps to choose activities.", sinhalaTranslation: "ඔව්, ඒක ක්‍රියාකාරකම් තෝරාගන්න උදව් වෙනවා." }
+    ]
   }
 ];
 
