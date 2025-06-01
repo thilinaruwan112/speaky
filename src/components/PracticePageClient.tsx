@@ -263,12 +263,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const speakAssistantLine = useCallback(() => {
     if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !('speechSynthesis' in window)) {
-      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { // If no speech synth, auto-advance
+      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { 
         setTimeout(() => handleNextLine(), 1000); 
       }
       return;
     }
-     // Cancel any ongoing speech first
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     }
@@ -280,14 +279,16 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         handleNextLine();
       }
     };
-    utterance.onerror = (event) => {
-      console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-      toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
-      setTimeout(() => {
-         if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
-           handleNextLine();
-         }
-       }, 3000);
+    utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+      console.error('SpeechSynthesis Error:', event.error);
+      if (event.error !== 'interrupted') {
+        toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
+        setTimeout(() => {
+           if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+             handleNextLine();
+           }
+         }, 3000);
+      }
     };
     window.speechSynthesis.speak(utterance);
   }, [handleNextLine, toast]);
@@ -299,11 +300,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     }
 
     let userAdvanceTimeoutId: NodeJS.Timeout | null = null;
-    let synthesisFallbackTimeoutId: NodeJS.Timeout | null = null;
 
     const cleanup = () => {
       if (userAdvanceTimeoutId) clearTimeout(userAdvanceTimeoutId);
-      if (synthesisFallbackTimeoutId) clearTimeout(synthesisFallbackTimeoutId);
       if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
       }
@@ -317,7 +316,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         speakAssistantLine();
       }
     } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
-      // Only auto-advance if feedback is correct AND transcription has been submitted
       userAdvanceTimeoutId = setTimeout(() => {
          if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current) {
             handleNextLine();
@@ -330,7 +328,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const handlePlayAssistantLine = () => {
     setAssistantLineManuallyPlayed(true);
-    // speakAssistantLine(); // useEffect will pick this up due to assistantLineManuallyPlayed change
   };
 
 
@@ -458,7 +455,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               <Button 
                 onClick={handleNextLine} 
                 className="text-lg px-6 py-5" 
-                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking && !assistantLineManuallyPlayed)}
+                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking && !assistantLineManuallyPlayedRef.current)}
               >
                 Next <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
