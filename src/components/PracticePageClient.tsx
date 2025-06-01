@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Mic, Square, ChevronRight, CheckCircle2, XCircle, Loader2, UserCircle2 } from 'lucide-react';
+import { Mic, Square, ChevronRight, CheckCircle2, XCircle, Loader2, UserCircle2, PlayCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { getIconByName } from '@/lib/icons';
 import { cn } from '@/lib/utils';
@@ -32,6 +32,8 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const [showUserMicCheck, setShowUserMicCheck] = useState(true);
   const [finalTranscriptProcessingTrigger, setFinalTranscriptProcessingTrigger] = useState(0);
   const [hasSubmittedTranscription, setHasSubmittedTranscription] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [assistantLineManuallyPlayed, setAssistantLineManuallyPlayed] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
@@ -49,13 +51,23 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const isProcessingAiRef = useRef(isProcessingAi);
   const isScenarioFinishedRef = useRef(isScenarioFinished);
   const hasSubmittedTranscriptionRef = useRef(hasSubmittedTranscription);
-
+  const isMobileViewRef = useRef(isMobileView);
+  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed);
 
   useEffect(() => { currentDialogueLineRef.current = currentDialogueLine; }, [currentDialogueLine]);
   useEffect(() => { feedbackRef.current = feedback; }, [feedback]);
   useEffect(() => { isProcessingAiRef.current = isProcessingAi; }, [isProcessingAi]);
   useEffect(() => { isScenarioFinishedRef.current = isScenarioFinished; }, [isScenarioFinished]);
   useEffect(() => { hasSubmittedTranscriptionRef.current = hasSubmittedTranscription; }, [hasSubmittedTranscription]);
+  useEffect(() => { isMobileViewRef.current = isMobileView; }, [isMobileView]);
+  useEffect(() => { assistantLineManuallyPlayedRef.current = assistantLineManuallyPlayed; }, [assistantLineManuallyPlayed]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobileView(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
 
   const handleNextLine = useCallback(() => {
@@ -72,6 +84,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setFeedback(null);
       setShowUserMicCheck(true);
       setHasSubmittedTranscription(false);
+      setAssistantLineManuallyPlayed(false); 
     } else {
       setCurrentLineIndex(prev => prev + 1); 
     }
@@ -125,7 +138,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       } else if (event.error === 'not-allowed') {
         errorMessage = "Microphone access denied by you or your browser settings. Please allow microphone access.";
       } else if (event.error === 'network') {
-        errorMessage = "A network error occurred during speech recognition. Please check your connection.";
+        errorMessage = "A network error occurred during speech recognition. Please check your connection. This can be common on mobile.";
       } else if (event.error === 'aborted') {
         errorMessage = "Speech recognition was aborted. Please try again.";
       } else if (event.error === 'language-not-supported' || event.error === 'service-not-allowed' || event.error === 'bad-grammar') {
@@ -165,7 +178,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         window.speechSynthesis.cancel();
       }
     };
-  }, [toast]); // Removed isRecording from dependency array to stabilize instance
+  }, [toast]);
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -223,7 +236,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       });
       return;
     }
-
+     console.log('Attempting to start recording. Current isRecording state:', isRecording);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true }); 
       setShowUserMicCheck(false);
@@ -239,7 +252,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings or check if another app is using the mic.", variant: "destructive" });
       setIsRecording(false); 
     }
-  }, [toast]); 
+  }, [toast, isRecording]); 
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
@@ -247,6 +260,38 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       recognitionRef.current.stop(); 
     }
   }, [isRecording]);
+
+  const speakAssistantLine = useCallback(() => {
+    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !('speechSynthesis' in window)) {
+      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { // If no speech synth, auto-advance
+        setTimeout(() => handleNextLine(), 1000); 
+      }
+      return;
+    }
+     // Cancel any ongoing speech first
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    const utterance = new SpeechSynthesisUtterance(currentDialogueLineRef.current.text);
+    utterance.lang = 'en-US';
+    utterance.onend = () => {
+      console.log('Assistant speech finished.');
+      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+        handleNextLine();
+      }
+    };
+    utterance.onerror = (event) => {
+      console.error('SpeechSynthesis Error:', event.error, (event as any).message);
+      toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
+      setTimeout(() => {
+         if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+           handleNextLine();
+         }
+       }, 3000);
+    };
+    window.speechSynthesis.speak(utterance);
+  }, [handleNextLine, toast]);
+
 
   useEffect(() => {
     if (isScenarioFinished || !currentDialogueLine) {
@@ -265,45 +310,28 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
     
     if (currentDialogueLine.speaker === 'ASSISTANT') {
-      if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech first
-        if (window.speechSynthesis.speaking) {
-          window.speechSynthesis.cancel();
-        }
-        const utterance = new SpeechSynthesisUtterance(currentDialogueLine.text);
-        utterance.lang = 'en-US';
-        utterance.onend = () => {
-          if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
-            handleNextLine();
-          }
-        };
-        utterance.onerror = (event) => {
-          console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-          toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
-          synthesisFallbackTimeoutId = setTimeout(() => {
-             if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
-               handleNextLine();
-             }
-           }, 3000);
-        };
-        window.speechSynthesis.speak(utterance);
+      if (isMobileView && !assistantLineManuallyPlayed) {
+        // On mobile, wait for user to click play
       } else {
-        toast({ title: "Speech Playback Not Supported", description: "Advancing in 3s.", variant: "default" });
-        synthesisFallbackTimeoutId = setTimeout(() => {
-          if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
-            handleNextLine();
-          }
-        }, 3000);
+        // On desktop, or if mobile user clicked play
+        speakAssistantLine();
       }
-    } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi) {
+    } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi && hasSubmittedTranscription) {
+      // Only auto-advance if feedback is correct AND transcription has been submitted
       userAdvanceTimeoutId = setTimeout(() => {
-         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current) {
+         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current) {
             handleNextLine();
          }
       }, 1500);
     }
     return cleanup;
-  }, [currentLineIndex, handleNextLine, toast, feedback, isProcessingAi, isScenarioFinished, currentDialogueLine]);
+  }, [currentLineIndex, currentDialogueLine, handleNextLine, toast, feedback, isProcessingAi, isScenarioFinished, hasSubmittedTranscription, isMobileView, assistantLineManuallyPlayed, speakAssistantLine]);
+
+
+  const handlePlayAssistantLine = () => {
+    setAssistantLineManuallyPlayed(true);
+    // speakAssistantLine(); // useEffect will pick this up due to assistantLineManuallyPlayed change
+  };
 
 
   if (isScenarioFinished) {
@@ -335,9 +363,12 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
   const cardBorderColor = currentDialogueLine.speaker === 'USER' ? 'border-primary' : 'border-gray-300';
 
+  const showPlayAssistantButton = isMobileView && currentDialogueLine.speaker === 'ASSISTANT' && !assistantLineManuallyPlayed && !window.speechSynthesis?.speaking;
+
   const showNextButton = 
-    (currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi && !window.speechSynthesis.speaking) ||
+    (!showPlayAssistantButton && currentDialogueLine.speaker === 'ASSISTANT' && !isRecording && !isProcessingAi && !window.speechSynthesis?.speaking) ||
     (currentDialogueLine.speaker === 'USER' && feedback && !feedback.isCorrect && !isProcessingAi && hasSubmittedTranscription);
+
 
   return (
     <div className="flex flex-col items-center p-4 md:p-8 min-h-full">
@@ -410,13 +441,24 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               )}
             </div>
           )}
+          
+          {showPlayAssistantButton && (
+            <div className="mt-6 flex justify-center">
+              <Button 
+                onClick={handlePlayAssistantLine} 
+                className="text-lg px-6 py-5"
+              >
+                <PlayCircle className="mr-2 h-5 w-5" /> Play Assistant Line
+              </Button>
+            </div>
+          )}
 
           {showNextButton && (
             <div className="mt-6 flex justify-end">
               <Button 
                 onClick={handleNextLine} 
                 className="text-lg px-6 py-5" 
-                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis.speaking)}
+                disabled={isRecording || isProcessingAi || (currentDialogueLine.speaker === 'ASSISTANT' && window.speechSynthesis?.speaking && !assistantLineManuallyPlayed)}
               >
                 Next <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
@@ -427,4 +469,3 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     </div>
   );
 }
-
