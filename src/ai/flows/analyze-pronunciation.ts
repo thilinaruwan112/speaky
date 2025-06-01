@@ -68,9 +68,34 @@ const analyzePronunciationFlow = ai.defineFlow(
     inputSchema: AnalyzePronunciationInputSchema,
     outputSchema: AnalyzePronunciationOutputSchema,
   },
-  async input => {
-    const {output} = await analyzePronunciationPrompt(input);
-    return output!;
+  async (input): Promise<AnalyzePronunciationOutput> => {
+    try {
+      // Ensure transcribed sentence is not empty, otherwise the model might error out
+      if (!input.transcribedSentence || input.transcribedSentence.trim() === "") {
+        return {
+          isCorrect: false,
+          feedback: "No speech was detected or it was unclear. Please try again.",
+        };
+      }
+      const {output} = await analyzePronunciationPrompt(input);
+      if (output) {
+        return output;
+      } else {
+        // This case handles if the model doesn't return an output that matches the schema
+        console.error('AI model did not return valid output for analyzePronunciationPrompt with input:', input);
+        return {
+          isCorrect: false,
+          feedback: "I couldn't analyze that response. Please try speaking again clearly.",
+        };
+      }
+    } catch (e) {
+      // This case handles unexpected errors during the prompt execution
+      console.error('Error within analyzePronunciationFlow or prompt execution:', e, 'Input:', input);
+      return {
+        isCorrect: false,
+        feedback: "There was an unexpected problem analyzing your speech. Please try again.",
+      };
+    }
   }
 );
 
