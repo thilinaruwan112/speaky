@@ -1,3 +1,4 @@
+
 // use server'
 
 /**
@@ -29,9 +30,9 @@ const AnalyzePronunciationOutputSchema = z.object({
   isCorrect: z
     .boolean()
     .describe(
-      'Whether the transcribed sentence matches the expected sentence.'
+      'Whether the transcribed sentence is substantially similar to the expected sentence.'
     ),
-  feedback: z.string().describe('Feedback on the user pronunciation.'),
+  feedback: z.string().describe('Feedback on the user pronunciation attempt.'),
 });
 export type AnalyzePronunciationOutput = z.infer<
   typeof AnalyzePronunciationOutputSchema
@@ -47,13 +48,15 @@ const analyzePronunciationPrompt = ai.definePrompt({
   name: 'analyzePronunciationPrompt',
   input: {schema: AnalyzePronunciationInputSchema},
   output: {schema: AnalyzePronunciationOutputSchema},
-  prompt: `You are an expert English pronunciation evaluator.
+  prompt: `You are an AI assistant. Your task is to compare two sentences: an "Expected Sentence" and a "Transcribed Sentence".
 
-You will receive the expected sentence and the transcribed sentence from the user.
+Determine if the "Transcribed Sentence" is substantially similar to the "Expected Sentence". "Substantially similar" means that the core meaning is the same and most of the important words are present, even if there are minor grammatical differences, or some small words are missing or different. This should be roughly equivalent to an 80% match or higher.
 
-You will compare the transcribed sentence with the expected sentence and determine if the pronunciation is correct.
-
-If the transcribed sentence does not match the expected sentence, provide feedback on the user pronunciation.
+Output fields:
+- isCorrect (boolean): Set to true if the sentences are substantially similar, false otherwise.
+- feedback (string):
+    - If isCorrect is true, set feedback to "Good job! That's a good match."
+    - If isCorrect is false, set feedback to "That's not quite right. Please try matching the sentence more closely."
 
 Expected Sentence: {{{expectedSentence}}}
 Transcribed Sentence: {{{transcribedSentence}}}`,
@@ -70,3 +73,4 @@ const analyzePronunciationFlow = ai.defineFlow(
     return output!;
   }
 );
+
