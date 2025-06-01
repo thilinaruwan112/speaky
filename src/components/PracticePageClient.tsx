@@ -35,53 +35,49 @@ type MicrophonePermissionStatus = 'pending' | 'granted' | 'denied' | 'unsupporte
 export default function PracticePageClient({ scenario }: PracticePageClientProps) {
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [isSpeechApiServiceProcessing, setIsSpeechApiServiceProcessing] = useState(false);
+  const [isSpeechApiServiceProcessing, setIsSpeechApiServiceProcessing] = useState(false); // True when speech API is active (recording or processing audio event)
   const [transcribedText, setTranscribedText] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [isProcessingAi, setIsProcessingAi] = useState(false);
+  const [isProcessingAi, setIsProcessingAi] = useState(false); // True when calling analyzePronunciation
   const [microphonePermissionStatus, setMicrophonePermissionStatus] = useState<MicrophonePermissionStatus>('pending');
   const [finalTranscriptProcessingTrigger, setFinalTranscriptProcessingTrigger] = useState(0);
   const [hasSubmittedTranscription, setHasSubmittedTranscription] = useState(false);
-  const [assistantLineManuallyPlayed, setAssistantLineManuallyPlayed] = useState(false);
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const [hasRecordedSomething, setHasRecordedSomething] = useState(false);
 
-
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const errorReportedRef = useRef(false);
-  const hasAutoPlayedCurrentAssistantLineRef = useRef(false);
   const latestTranscriptionRef = useRef("");
-  const hasRecordedSomethingRef = useRef(false);
-
-  const { toast } = useToast();
+  const hasRecordedSomethingRef = useRef(false); // Tracks if any audio (interim or final) came through for current attempt
 
   const currentDialogueLine = scenario.dialogue[currentLineIndex];
   const totalUserLines = scenario.dialogue.filter(line => line.speaker === 'USER').length;
   const userLinesCompleted = scenario.dialogue.slice(0, currentLineIndex).filter(line => line.speaker === 'USER').length;
-
   const progressPercentage = totalUserLines > 0 ? (userLinesCompleted / totalUserLines) * 100 : 0;
-  
   const isScenarioFinished = currentLineIndex >= scenario.dialogue.length;
 
+  // Refs for values used in callbacks to avoid stale closures
   const currentDialogueLineRef = useRef(currentDialogueLine);
   const feedbackRef = useRef(feedback);
   const isProcessingAiRef = useRef(isProcessingAi);
   const isScenarioFinishedRef = useRef(isScenarioFinished);
   const hasSubmittedTranscriptionRef = useRef(hasSubmittedTranscription);
-  const assistantLineManuallyPlayedRef = useRef(assistantLineManuallyPlayed);
-  
+  const isAssistantSpeakingRef = useRef(isAssistantSpeaking);
+  const hasAutoPlayedCurrentAssistantLineRef = useRef(false);
+
 
   useEffect(() => { currentDialogueLineRef.current = currentDialogueLine; }, [currentDialogueLine]);
   useEffect(() => { feedbackRef.current = feedback; }, [feedback]);
   useEffect(() => { isProcessingAiRef.current = isProcessingAi; }, [isProcessingAi]);
   useEffect(() => { hasSubmittedTranscriptionRef.current = hasSubmittedTranscription; }, [hasSubmittedTranscription]);
-  useEffect(() => { assistantLineManuallyPlayedRef.current = assistantLineManuallyPlayed; }, [assistantLineManuallyPlayed]);
   useEffect(() => { isScenarioFinishedRef.current = isScenarioFinished; }, [isScenarioFinished]);
-  useEffect(() => { latestTranscriptionRef.current = transcribedText; }, [transcribedText]);
-  useEffect(() => { hasRecordedSomethingRef.current = hasRecordedSomething; }, [hasRecordedSomething]);
-  
+  useEffect(() => { isAssistantSpeakingRef.current = isAssistantSpeaking; }, [isAssistantSpeaking]);
+  // No longer need useEffect to sync latestTranscriptionRef from transcribedText state. It will be updated directly.
+
+  const { toast } = useToast();
+
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -104,13 +100,45 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setMicrophonePermissionStatus('granted');
-        stream.getTracks().forEach(track => track.stop()); 
+        // Check permission status without actually starting a persistent stream
+        const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (permission.state === 'granted') {
+          setMicrophonePermissionStatus('granted');
+        } else if (permission.state === 'prompt') {
+          // Try to prompt for permission by a quick getUserMedia request
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setMicrophonePermissionStatus('granted');
+            stream.getTracks().forEach(track => track.stop());
+          } catch (err) {
+            console.error("Microphone permission denied on prompt:", err);
+            setMicrophonePermissionStatus('denied');
+            if (hasMounted) toast({ variant: "destructive", title: "Microphone Access Required", description: "Please enable microphone permissions in your browser settings and refresh." });
+          }
+        } else {
+          setMicrophonePermissionStatus('denied');
+          if (hasMounted) toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions in your browser settings and refresh." });
+        }
+        
+        permission.onchange = () => {
+          setMicrophonePermissionStatus(permission.state as MicrophonePermissionStatus);
+           if (permission.state === 'denied' && hasMounted) {
+            toast({ variant: "destructive", title: "Microphone Access Changed", description: "Permissions changed. Please re-enable if needed." });
+          }
+        };
+
       } catch (err) {
-        console.error("Microphone permission check/denied on mount:", err);
-        setMicrophonePermissionStatus('denied');
-        if (hasMounted) toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions in your browser settings and refresh." });
+        console.error("Error checking microphone permissions:", err);
+        // Fallback for browsers not supporting navigator.permissions.query well for microphone
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setMicrophonePermissionStatus('granted');
+            stream.getTracks().forEach(track => track.stop());
+        } catch (getUserMediaError) {
+            console.error("Microphone permission check/denied via getUserMedia fallback:", getUserMediaError);
+            setMicrophonePermissionStatus('denied');
+            if (hasMounted) toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions in your browser settings and refresh." });
+        }
       }
     };
 
@@ -136,26 +164,34 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       window.speechSynthesis.cancel();
     }
     setIsAssistantSpeaking(false);
+    hasAutoPlayedCurrentAssistantLineRef.current = false;
 
-    if (currentLineIndex < scenario.dialogue.length - 1) {
-      setCurrentLineIndex(prev => prev + 1);
-      setTranscribedText('');
-      latestTranscriptionRef.current = "";
-      setInterimTranscription('');
-      setFeedback(null);
-      feedbackRef.current = null;
-      setHasSubmittedTranscription(false);
-      hasSubmittedTranscriptionRef.current = false;
-      setAssistantLineManuallyPlayed(false);
-      assistantLineManuallyPlayedRef.current = false;
-      hasAutoPlayedCurrentAssistantLineRef.current = false;
-      setHasRecordedSomething(false);
-      hasRecordedSomethingRef.current = false;
-      errorReportedRef.current = false;
-    } else {
-      setCurrentLineIndex(prev => prev + 1); 
+    setCurrentLineIndex(prev => {
+      if (prev < scenario.dialogue.length - 1) {
+        return prev + 1;
+      }
+      return prev + 1; // Go to "finished" state
+    });
+    
+    // Reset all recording/feedback related states for the new line
+    setTranscribedText('');
+    latestTranscriptionRef.current = "";
+    setInterimTranscription('');
+    setFeedback(null);
+    feedbackRef.current = null;
+    setHasSubmittedTranscription(false);
+    hasSubmittedTranscriptionRef.current = false;
+    setHasRecordedSomething(false);
+    hasRecordedSomethingRef.current = false;
+    errorReportedRef.current = false; // Reset error flag for the new line
+    setIsProcessingAi(false);
+    setIsSpeechApiServiceProcessing(false);
+    if (recognitionRef.current && isRecording) { // Stop any ongoing recording
+        recognitionRef.current.abort(); // Use abort to quickly stop and prevent further events
+        setIsRecording(false);
     }
-  }, [currentLineIndex, scenario.dialogue.length]);
+
+  }, [scenario.dialogue.length, isRecording]);
 
 
   const processTranscription = useCallback(async (textToProcess: string) => {
@@ -164,11 +200,11 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     }
     
     setIsProcessingAi(true);
-    setFeedback(null); // Clear previous feedback before new analysis
+    setFeedback(null); 
     try {
       const result = await analyzePronunciation({
         expectedSentence: currentDialogueLineRef.current.text,
-        transcribedSentence: textToProcess.trim(),
+        transcribedSentence: textToProcess.trim(), // Ensure .trim() is used here
       });
       setFeedback({
         isCorrect: result.isCorrect,
@@ -177,42 +213,38 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } catch (error) {
       console.error("Analysis error:", error);
       setFeedback({ isCorrect: false, message: 'Error analyzing pronunciation. Please try again.' });
-      toast({ title: "Analysis Error", description: "Could not analyze pronunciation.", variant: "destructive" });
+      if (hasMounted) toast({ title: "Analysis Error", description: "Could not analyze pronunciation.", variant: "destructive" });
     } finally {
       setIsProcessingAi(false);
     }
-  }, [toast]);
+  }, [toast, hasMounted]);
 
 
   useEffect(() => {
     if (finalTranscriptProcessingTrigger === 0 || isRecording || isSpeechApiServiceProcessing) {
       return; 
     }
-    // This effect is triggered by `finalTranscriptProcessingTrigger` which is set in `onend`
-    // only if there's text and no prior error.
-
-    // Check ref for submission status for the most up-to-date value
-    if (hasSubmittedTranscriptionRef.current) {
+    if (hasSubmittedTranscriptionRef.current) { // Check ref for most up-to-date status
         return;
     }
     
-    const textToProcess = latestTranscriptionRef.current.trim(); // Use ref for text from onend
+    const textToProcess = latestTranscriptionRef.current.trim();
+    
     if (textToProcess === "") {
-      // This case should have been handled by onend itself (setting feedback for no speech)
-      // If it reaches here, it implies `onend` decided there was text but it was whitespace.
-      // Or a race condition. Let's ensure feedback is set.
-      if (!feedbackRef.current) { // Avoid overwriting error feedback
+      if (!feedbackRef.current) { 
         setFeedback({ isCorrect: false, message: "No clear speech was processed." });
       }
       setHasSubmittedTranscription(true); // Mark as handled
+      hasSubmittedTranscriptionRef.current = true;
       return;
     }
     
-    setHasSubmittedTranscription(true); // Mark as submitted *before* async call
+    setHasSubmittedTranscription(true); 
+    hasSubmittedTranscriptionRef.current = true; // Mark as submitted *before* async call
     processTranscription(textToProcess);
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finalTranscriptProcessingTrigger]); // Dependencies: trigger, and stable refs for recording/processing states.
+  }, [finalTranscriptProcessingTrigger]);
 
 
   const handleStartRecording = useCallback(async () => {
@@ -228,28 +260,28 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     setHasRecordedSomething(false);
     hasRecordedSomethingRef.current = false;
 
-
     if (microphonePermissionStatus !== 'granted') {
       let msg = "Microphone permission is required to record.";
       if (microphonePermissionStatus === 'pending') msg = "Microphone permission check is ongoing. Please wait.";
       else if (microphonePermissionStatus === 'denied') msg = "Microphone permission denied. Please enable it in browser settings and refresh.";
       else if (microphonePermissionStatus === 'unsupported_api') msg = "Speech API not supported. Try Chrome or Edge.";
       else if (microphonePermissionStatus === 'unsupported_mic') msg = "Microphone access (getUserMedia) not supported.";
-      toast({ title: "Cannot Start Recording", description: msg, variant: "destructive" });
-      setFeedback({ isCorrect: false, message: msg }); // Show feedback on page too
-      setHasSubmittedTranscription(true); // Mark this attempt as handled (failed)
+      if (hasMounted) toast({ title: "Cannot Start Recording", description: msg, variant: "destructive" });
+      setFeedback({ isCorrect: false, message: msg });
+      setHasSubmittedTranscription(true); 
+      hasSubmittedTranscriptionRef.current = true;
       return;
     }
 
     const SpeechRecognitionAPI = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
     if (!SpeechRecognitionAPI) {
-      // This should have been caught by permission check, but as a safeguard:
       setMicrophonePermissionStatus('unsupported_api');
       const msg = "Speech recognition API is not available in your browser. Try Chrome or Edge.";
-      toast({ variant: "destructive", title: "Browser Not Supported", description: msg});
+      if (hasMounted) toast({ variant: "destructive", title: "Browser Not Supported", description: msg});
       setFeedback({ isCorrect: false, message: msg });
       setHasSubmittedTranscription(true);
+      hasSubmittedTranscriptionRef.current = true;
       return;
     }
 
@@ -270,38 +302,45 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
       recognition.onstart = () => {
         setIsRecording(true);
-        setIsSpeechApiServiceProcessing(true);
-        setHasRecordedSomething(false); // Reset for this specific attempt
+        setIsSpeechApiServiceProcessing(true); // Indicates speech service is active
+        setHasRecordedSomething(false); 
         hasRecordedSomethingRef.current = false;
-        toast({
+        if (hasMounted) toast({
           title: "Recording Started",
           description: "Speak into your microphone.",
         });
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let interim = '';
-        let finalSegment = '';
+        let interimDisplay = ''; // For displaying only the current interim segment
+        let currentFinalTranscript = latestTranscriptionRef.current; // Start with existing final transcript from this attempt
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcriptSegment = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalSegment += event.results[i][0].transcript;
+            // Append the new final segment
+            currentFinalTranscript = (currentFinalTranscript + transcriptSegment.trim() + ' ').trimStart();
           } else {
-            interim += event.results[i][0].transcript;
+            interimDisplay += transcriptSegment; // Accumulate current interim segments
           }
         }
-        setInterimTranscription(interim);
-        if (finalSegment.trim()) {
-          setTranscribedText(prev => (prev + finalSegment.trim() + ' ').trimStart());
+        
+        setInterimTranscription(interimDisplay); // Update UI for interim text
+
+        if (currentFinalTranscript !== latestTranscriptionRef.current) {
+          setTranscribedText(currentFinalTranscript); // Update UI for final text
+          latestTranscriptionRef.current = currentFinalTranscript; // CRITICAL: Update ref synchronously
           setHasRecordedSomething(true);
           hasRecordedSomethingRef.current = true;
-        } else if (interim.trim()) {
-            setHasRecordedSomething(true); // Also flag if only interim results come through
-            hasRecordedSomethingRef.current = true;
+        } else if (interimDisplay.trim() && !hasRecordedSomethingRef.current) {
+          // If only interim results so far, still mark that recording has captured something
+          setHasRecordedSomething(true);
+          hasRecordedSomethingRef.current = true;
         }
       };
-
+      
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        errorReportedRef.current = true; // Mark that an error occurred
+        errorReportedRef.current = true; 
         let errorMessage = `Speech recognition error: ${event.error}.`;
         let feedbackMessage = "An error occurred during speech recognition. Please try again.";
 
@@ -320,20 +359,22 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
           feedbackMessage = errorMessage;
         } else if (event.error === 'aborted' || event.error === 'interrupted') {
            console.log('Speech recognition intentionally stopped or interrupted:', event.error);
-           if (!latestTranscriptionRef.current.trim() && !interimTranscription.trim() && !hasRecordedSomethingRef.current) { 
+           // If aborted before anything meaningful, set feedback. Otherwise, let onend handle it if there's text.
+           if (!hasRecordedSomethingRef.current) { 
              feedbackMessage = "Recording stopped before any speech was captured.";
            } else {
+             // If something was recorded, let onend handle the processing if appropriate
              setIsRecording(false); 
              setIsSpeechApiServiceProcessing(false);
              return; 
            }
         }
         
-        toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
-        // Set feedback only if no other feedback is already set from a previous state
-        if (!feedbackRef.current && !hasSubmittedTranscriptionRef.current) {
+        if (hasMounted) toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
+        if (!feedbackRef.current && !hasSubmittedTranscriptionRef.current) { // Avoid overwriting if AI is processing
             setFeedback({ isCorrect: false, message: feedbackMessage });
-            setHasSubmittedTranscription(true); // Mark this error attempt as "handled"
+            setHasSubmittedTranscription(true); 
+            hasSubmittedTranscriptionRef.current = true;
         }
         setIsRecording(false);
         setIsSpeechApiServiceProcessing(false);
@@ -341,31 +382,34 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       
       recognition.onend = () => {
         setIsRecording(false);
-        setIsSpeechApiServiceProcessing(false);
+        setIsSpeechApiServiceProcessing(false); // Speech service is no longer active
 
-        if (!errorReportedRef.current) { // Only proceed if no error was caught by `onerror`
-            if (latestTranscriptionRef.current.trim() !== "") { // If actual text was transcribed
-                toast({
-                    title: "Recording Stopped",
-                    description: "Processing your speech...",
-                });
-                // Trigger analysis only if there is text and it hasn't been submitted from an error path
-                if (!hasSubmittedTranscriptionRef.current) {
-                    setFinalTranscriptProcessingTrigger(prev => prev + 1);
-                }
-            } else { // If recording ended with no text and no specific error
-                 toast({
-                    title: "Recording Stopped",
-                    description: "No speech was clearly transcribed.",
-                });
-                // Set feedback for "no speech" and mark as submitted
-                if (!feedbackRef.current && !hasSubmittedTranscriptionRef.current) {
-                    setFeedback({ isCorrect: false, message: "No speech was detected or captured clearly." });
-                    setHasSubmittedTranscription(true);
-                }
+        if (errorReportedRef.current) { 
+            // Error was already handled by onerror, no further action here.
+            return;
+        }
+        
+        const finalTranscribedText = latestTranscriptionRef.current.trim();
+
+        if (finalTranscribedText !== "") { 
+            if (hasMounted) toast({
+                title: "Recording Stopped",
+                description: "Processing your speech...",
+            });
+            if (!hasSubmittedTranscriptionRef.current) { // Ensure not already submitted (e.g. by quick stop/start)
+                setFinalTranscriptProcessingTrigger(prev => prev + 1); // Trigger AI analysis
+            }
+        } else { // Recording ended with no text and no specific 'no-speech' error event.
+            if (hasMounted) toast({
+                title: "Recording Stopped",
+                description: "No speech was clearly transcribed.",
+            });
+            if (!feedbackRef.current && !hasSubmittedTranscriptionRef.current) {
+                setFeedback({ isCorrect: false, message: "No speech was detected or captured clearly." });
+                setHasSubmittedTranscription(true);
+                hasSubmittedTranscriptionRef.current = true;
             }
         }
-        // If errorReportedRef.current is true, onerror already handled feedback and submission status.
       };
       
       recognition.start();
@@ -373,19 +417,21 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } catch (err) {
       console.error("Error in handleStartRecording:", err);
       let errMsg = "Could not start speech recognition. Ensure microphone is connected and permissions are granted.";
-      if (err instanceof DOMException && err.name === "NotAllowedError") {
+      if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
         errMsg = "Microphone access denied. Please enable it in browser settings.";
         setMicrophonePermissionStatus('denied');
       }
-      toast({ title: "Recording Failed", description: errMsg, variant: "destructive" });
+      if (hasMounted) toast({ title: "Recording Failed", description: errMsg, variant: "destructive" });
       if (!feedbackRef.current && !hasSubmittedTranscriptionRef.current) {
         setFeedback({ isCorrect: false, message: errMsg });
         setHasSubmittedTranscription(true);
+        hasSubmittedTranscriptionRef.current = true;
       }
       setIsRecording(false);
       setIsSpeechApiServiceProcessing(false);
     }
-  }, [toast, microphonePermissionStatus, interimTranscription]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [microphonePermissionStatus, hasMounted, toast]);
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
@@ -396,16 +442,15 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
 
   const speakAssistantLine = useCallback(() => {
     if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'ASSISTANT' || !(typeof window !== 'undefined' && 'speechSynthesis' in window)) {
-      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') { 
-        // If speech synthesis not supported but it's assistant's turn, auto-advance after a short delay.
-        // This is a fallback, ideally UI would indicate TTS is not available.
-        setTimeout(() => handleNextLine(), 1000);
+      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) { 
+        // If TTS not supported but it's assistant's turn, auto-advance.
+        setTimeout(() => handleNextLine(), 1000); // Give a brief moment for user to read
       }
       return;
     }
 
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel(); // Cancel current speech if any before starting new
+    if (window.speechSynthesis.speaking) { // If already speaking, stop current before starting new
+      window.speechSynthesis.cancel();
     }
     
     setIsAssistantSpeaking(true);
@@ -415,18 +460,18 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     utterance.onend = () => {
       setIsAssistantSpeaking(false);
       // Auto-advance only if it was the assistant's turn and scenario is not finished
-      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
+      // And it wasn't manually stopped/interrupted by a new call to speakAssistantLine or next line
+      if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current && isAssistantSpeakingRef.current) {
         handleNextLine();
       }
     };
-    utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+    utterance.onerror = (event) => {
       setIsAssistantSpeaking(false);
       if (event.error === 'interrupted') {
-        console.log('SpeechSynthesis was interrupted, this is often normal. Message:', (event as any).message);
+        console.log('SpeechSynthesis was interrupted (often normal). Message:', (event as any).message);
       } else {
         console.error('SpeechSynthesis Error:', event.error, (event as any).message);
-        toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
-        // Auto-advance after a delay if TTS fails critically
+        if (hasMounted) toast({ title: "Speech Error", description: "Could not play audio. Advancing in 3s.", variant: "destructive" });
          setTimeout(() => {
            if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinishedRef.current) {
              handleNextLine();
@@ -435,7 +480,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }
     };
     window.speechSynthesis.speak(utterance);
-  }, [handleNextLine, toast]);
+  }, [handleNextLine, toast, hasMounted]);
 
 
   useEffect(() => {
@@ -450,49 +495,34 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
       
     if (currentDialogueLineRef.current.speaker === 'ASSISTANT') {
-      const isDesktop = typeof window !== 'undefined' ? window.innerWidth >= 768 : true; 
-      // Auto-play on desktop if not manually played yet for this line
-      if (isDesktop && !assistantLineManuallyPlayedRef.current && !hasAutoPlayedCurrentAssistantLineRef.current) {
+      if (!hasAutoPlayedCurrentAssistantLineRef.current) {
         speakAssistantLine();
         hasAutoPlayedCurrentAssistantLineRef.current = true; 
-      } else if (assistantLineManuallyPlayedRef.current) { // If play button was clicked (desktop or mobile)
-        speakAssistantLine();
-        // assistantLineManuallyPlayedRef.current will be reset on next line
       }
-    } else if (currentDialogueLineRef.current.speaker === 'USER' && feedbackRef.current?.isCorrect && !isProcessingAiRef.current && hasSubmittedTranscriptionRef.current) {
-      // Auto-advance if user was correct, not processing, and submission is marked
-      userAdvanceTimeoutId = setTimeout(() => {
-         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current && !isProcessingAiRef.current) {
-            handleNextLine();
-         }
-      }, 1500);
+    } else if (currentDialogueLineRef.current.speaker === 'USER') {
+      if (feedbackRef.current?.isCorrect && !isProcessingAiRef.current && hasSubmittedTranscriptionRef.current) {
+        userAdvanceTimeoutId = setTimeout(() => {
+          if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinishedRef.current && hasSubmittedTranscriptionRef.current && !isProcessingAiRef.current) {
+              handleNextLine();
+          }
+        }, 1500);
+      }
     }
     return cleanup;
-  }, [
-      currentLineIndex, // Re-evaluate when line changes
-      // currentDialogueLine, // Ref is used
-      // feedback, // Ref is used
-      // isProcessingAi, // Ref is used
-      // isScenarioFinished, // Ref is used
-      // hasSubmittedTranscription, // Ref is used
-      // assistantLineManuallyPlayed, // Ref is used
-      handleNextLine, 
-      speakAssistantLine, 
-      hasMounted
-    ]);
+  }, [currentLineIndex, handleNextLine, speakAssistantLine, hasMounted]);
 
 
-  const handlePlayAssistantLine = () => {
-    setAssistantLineManuallyPlayed(true); 
-    assistantLineManuallyPlayedRef.current = true;
-    hasAutoPlayedCurrentAssistantLineRef.current = true; 
+  const handlePlayAssistantLineManual = () => {
     if (currentDialogueLineRef.current?.speaker === 'ASSISTANT') {
-        speakAssistantLine(); // This will also handle cancelling existing speech
+        // If already speaking, this will cancel and restart.
+        // If not speaking, it will start.
+        speakAssistantLine(); 
+        hasAutoPlayedCurrentAssistantLineRef.current = true; // Mark as played if manual click
     }
   };
 
 
-  if (!hasMounted || (microphonePermissionStatus === 'pending' && currentDialogueLine?.speaker === 'USER')) {
+  if (!hasMounted || (microphonePermissionStatus === 'pending' && !isScenarioFinished && currentDialogueLine?.speaker === 'USER')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
@@ -518,7 +548,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }
   
   if (!currentDialogueLine) {
-    // This should ideally not happen if isScenarioFinished is handled
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
@@ -531,13 +560,12 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const IconComponent = currentDialogueLine.speaker === 'USER' ? UserCircle2 : ScenarioIcon;
   const cardBorderColor = currentDialogueLine.speaker === 'USER' ? 'border-primary' : 'border-gray-300';
 
-  // Ensure window access is client-side for these checks
   const assistantIsNotSpeaking = typeof window !== 'undefined' && hasMounted ? !window.speechSynthesis?.speaking : true;
 
   const showPlayAssistantButton = currentDialogueLine.speaker === 'ASSISTANT'; 
 
   const showNextButton = 
-    (currentDialogueLine.speaker === 'ASSISTANT' && !isAssistantSpeaking && assistantIsNotSpeaking) ||
+    (currentDialogueLine.speaker === 'ASSISTANT' && (assistantIsNotSpeaking && !isAssistantSpeakingRef.current)) || // Show if assistant is not speaking
     (currentDialogueLine.speaker === 'USER' && feedback && !feedback.isCorrect && !isProcessingAi && hasSubmittedTranscription);
 
 
@@ -596,7 +624,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
                 {!isRecording ? (
                   <Button 
                     onClick={handleStartRecording} 
-                    disabled={isProcessingAi || isRecording || isSpeechApiServiceProcessing || (feedback?.isCorrect === true && hasSubmittedTranscription) || microphonePermissionStatus !== 'granted'} 
+                    disabled={isProcessingAi || isRecording || isSpeechApiServiceProcessing || (feedback?.isCorrect === true && hasSubmittedTranscription) || microphonePermissionStatus !== 'granted' || isAssistantSpeaking} 
                     className="w-full sm:w-auto text-lg px-8 py-6 bg-primary hover:bg-primary/90"
                   >
                     <Mic className="mr-2 h-6 w-6" /> Start Recording
@@ -627,7 +655,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
                 </div>
               )}
               
-              {isSpeechApiServiceProcessing && !isRecording && !isProcessingAi && ( // Shows when onend hasn't fired but recording stopped
+              {isSpeechApiServiceProcessing && !isRecording && !isProcessingAi && ( // Shows when speech service is working but not actively recording (e.g. between result and end)
                  <div className="flex items-center justify-center text-primary mt-4 p-2">
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     <span>Finalizing recording...</span>
@@ -635,7 +663,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               )}
 
 
-              {feedback && !isProcessingAi && ( // Only show feedback if not actively processing AI
+              {feedback && !isProcessingAi && ( 
                 <Alert variant={feedback.isCorrect ? "default" : "destructive"} className={`mt-4 ${feedback.isCorrect ? 'bg-accent/20 border-accent' : ''}`}>
                   {feedback.isCorrect ? <CheckCircle2 className="h-5 w-5 text-accent-foreground" /> : <XCircle className="h-5 w-5" />}
                   <AlertTitle className={`font-headline ${feedback.isCorrect ? 'text-accent-foreground' : ''}`}>
@@ -652,9 +680,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
           {showPlayAssistantButton && ( 
             <div className="mt-6 flex justify-center">
               <Button 
-                onClick={handlePlayAssistantLine} 
+                onClick={handlePlayAssistantLineManual} 
                 className="text-lg px-6 py-5"
-                disabled={isAssistantSpeaking}
+                disabled={isAssistantSpeaking} // Disable if already speaking this line
               >
                 <PlayCircle className="mr-2 h-5 w-5" /> 
                 {isAssistantSpeaking ? "Playing..." : "Play Assistant Line"}
@@ -667,7 +695,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               <Button 
                 onClick={handleNextLine} 
                 className="text-lg px-6 py-5" 
-                disabled={isRecording || isProcessingAi || isSpeechApiServiceProcessing || isAssistantSpeaking || (currentDialogueLine.speaker === 'ASSISTANT' && (typeof window !== 'undefined' && window.speechSynthesis?.speaking))}
+                disabled={isRecording || isProcessingAi || isSpeechApiServiceProcessing || isAssistantSpeaking || (currentDialogueLine.speaker === 'ASSISTANT' && (typeof window !== 'undefined' && window.speechSynthesis?.speaking && !assistantIsNotSpeaking))}
               >
                 Next <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
@@ -678,5 +706,3 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     </div>
   );
 }
-
-    
