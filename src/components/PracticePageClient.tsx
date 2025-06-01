@@ -33,7 +33,6 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   const [finalTranscriptProcessingTrigger, setFinalTranscriptProcessingTrigger] = useState(0);
   const [hasSubmittedTranscription, setHasSubmittedTranscription] = useState(false);
 
-
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { toast } = useToast();
 
@@ -45,6 +44,18 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   
   const isScenarioFinished = currentLineIndex >= scenario.dialogue.length;
 
+  // Refs for state values needed in stable callbacks
+  const currentDialogueLineRef = useRef(currentDialogueLine);
+  const feedbackRef = useRef(feedback);
+
+  useEffect(() => {
+    currentDialogueLineRef.current = currentDialogueLine;
+  }, [currentDialogueLine]);
+
+  useEffect(() => {
+    feedbackRef.current = feedback;
+  }, [feedback]);
+
   const handleNextLine = useCallback(() => {
     if (isScenarioFinished) return;
 
@@ -54,9 +65,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setInterimTranscription('');
       setFeedback(null);
       setShowUserMicCheck(true);
-      setHasSubmittedTranscription(false); // Reset for the new line
+      setHasSubmittedTranscription(false);
     } else {
-      setCurrentLineIndex(prev => prev + 1); // Trigger scenario finished state
+      setCurrentLineIndex(prev => prev + 1); 
     }
   }, [currentLineIndex, scenario.dialogue.length, isScenarioFinished]);
 
@@ -108,9 +119,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       
       toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
       setIsRecording(false);
-      if (currentDialogueLine?.speaker === 'USER' && !feedback) {
+      if (currentDialogueLineRef.current?.speaker === 'USER' && !feedbackRef.current) {
         setFeedback({ isCorrect: false, message: errorMessage });
-        setHasSubmittedTranscription(true); // Mark as "processed" to avoid loop
+        setHasSubmittedTranscription(true);
       }
     };
     
@@ -124,14 +135,14 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         recognitionRef.current.onresult = null;
         recognitionRef.current.onerror = null;
         recognitionRef.current.onend = null;
-        recognitionRef.current.stop();
+        recognitionRef.current.abort(); // Use abort for a more forceful stop
       }
     };
-  }, [toast, currentDialogueLine, feedback]);
+  }, [toast]); // Stable dependency array
 
   const processTranscription = useCallback(async (textToProcess: string) => {
-    if (!currentDialogueLine || currentDialogueLine.speaker !== 'USER' || !textToProcess.trim()) {
-       if (currentDialogueLine?.speaker === 'USER' && !textToProcess.trim()) {
+    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'USER' || !textToProcess.trim()) {
+       if (currentDialogueLineRef.current?.speaker === 'USER' && !textToProcess.trim()) {
          setFeedback({ isCorrect: false, message: 'No speech was captured. Try speaking clearly.' });
        }
       return;
@@ -140,7 +151,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     setFeedback(null); 
     try {
       const result = await analyzePronunciation({
-        expectedSentence: currentDialogueLine.text,
+        expectedSentence: currentDialogueLineRef.current.text,
         transcribedSentence: textToProcess.trim(),
       });
       setFeedback({
@@ -154,7 +165,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } finally {
       setIsProcessingAi(false);
     }
-  }, [currentDialogueLine, toast]);
+  }, [toast]); // currentDialogueLineRef is a ref, so it doesn't need to be a dependency
 
 
   useEffect(() => {
@@ -166,13 +177,13 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     if (textToProcess) {
       setHasSubmittedTranscription(true); 
       processTranscription(textToProcess);
-    } else if (currentDialogueLine?.speaker === 'USER') { 
-      if (!feedback) { 
+    } else if (currentDialogueLineRef.current?.speaker === 'USER') { 
+      if (!feedbackRef.current) { 
           setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
       }
       setHasSubmittedTranscription(true);
     }
-  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, currentDialogueLine, hasSubmittedTranscription, feedback]);
+  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, hasSubmittedTranscription]);
 
 
   const handleStartRecording = useCallback(async () => {
@@ -202,25 +213,25 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [isRecording]);
 
   useEffect(() => {
-    if (isScenarioFinished || !currentDialogueLine) return;
+    if (isScenarioFinished || !currentDialogueLineRef.current) return;
 
     let timerId: NodeJS.Timeout;
 
-    if (currentDialogueLine.speaker === 'ASSISTANT') {
+    if (currentDialogueLineRef.current.speaker === 'ASSISTANT') {
       timerId = setTimeout(() => {
-        if (currentDialogueLine?.speaker === 'ASSISTANT' && !isScenarioFinished) {
+        if (currentDialogueLineRef.current?.speaker === 'ASSISTANT' && !isScenarioFinished) {
           handleNextLine();
         }
       }, 3000); 
-    } else if (currentDialogueLine.speaker === 'USER' && feedback?.isCorrect && !isProcessingAi) {
+    } else if (currentDialogueLineRef.current.speaker === 'USER' && feedbackRef.current?.isCorrect && !isProcessingAi) {
       timerId = setTimeout(() => {
-         if (feedback?.isCorrect && currentDialogueLine?.speaker === 'USER' && !isScenarioFinished) {
+         if (feedbackRef.current?.isCorrect && currentDialogueLineRef.current?.speaker === 'USER' && !isScenarioFinished) {
             handleNextLine();
          }
       }, 1500); 
     }
     return () => clearTimeout(timerId);
-  }, [currentDialogueLine, feedback, isProcessingAi, handleNextLine, isScenarioFinished]);
+  }, [currentLineIndex, feedback, isProcessingAi, handleNextLine, isScenarioFinished]); // currentLineIndex is used to re-evaluate when dialogue line changes
 
 
   if (isScenarioFinished) {
@@ -293,7 +304,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
               {(isRecording || transcribedText || interimTranscription) && (
                  <div className="mt-4 p-4 border rounded-md bg-background min-h-[60px]">
                     <p className="text-sm text-muted-foreground">
-                        {isRecording && !interimTranscription && !transcribedText && !transcribedText && !feedback ? "Listening..." : "You said:"}
+                        {isRecording && !interimTranscription && !transcribedText && !feedback ? "Listening..." : "You said:"}
                     </p>
                     <p className="text-lg">
                         {transcribedText}
