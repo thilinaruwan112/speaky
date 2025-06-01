@@ -1,5 +1,5 @@
 
-// use server'
+'use server';
 
 /**
  * @fileOverview AI agent that analyzes the pronunciation of a sentence and compares it to the expected sentence.
@@ -8,8 +8,6 @@
  * - AnalyzePronunciationInput - The input type for the analyzePronunciation function.
  * - AnalyzePronunciationOutput - The return type for the analyzePronunciation function.
  */
-
-'use server';
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
@@ -47,49 +45,57 @@ export async function analyzePronunciation(
 const analyzePronunciationPrompt = ai.definePrompt({
   name: 'analyzePronunciationPrompt',
   input: {schema: AnalyzePronunciationInputSchema},
-  output: {schema: AnalyzePronunciationOutputSchema},
+  // Removed output schema here to simplify AI's task
   prompt: `You are an AI assistant. Your task is to compare two sentences: an "Expected Sentence" and a "Transcribed Sentence".
 
 Determine if the "Transcribed Sentence" is substantially similar to the "Expected Sentence". "Substantially similar" means that the core meaning is the same and most of the important words are present, even if there are minor grammatical differences, or some small words are missing or different. This should be roughly equivalent to an 80% match or higher.
 
-Output fields:
-- isCorrect (boolean): Set to true if the sentences are substantially similar, false otherwise.
-- feedback (string):
-    - If isCorrect is true, set feedback to "Good job! That's a good match."
-    - If isCorrect is false, set feedback to "That's not quite right. Please try matching the sentence more closely."
-
 Expected Sentence: {{{expectedSentence}}}
-Transcribed Sentence: {{{transcribedSentence}}}`,
+Transcribed Sentence: {{{transcribedSentence}}}
+
+Respond with ONLY the word "CORRECT" if the sentences are substantially similar.
+Respond with ONLY the word "INCORRECT" if they are not.
+Do not provide any other explanation or text.`,
 });
 
 const analyzePronunciationFlow = ai.defineFlow(
   {
     name: 'analyzePronunciationFlow',
     inputSchema: AnalyzePronunciationInputSchema,
-    outputSchema: AnalyzePronunciationOutputSchema,
+    outputSchema: AnalyzePronunciationOutputSchema, // This is the flow's output, not the prompt's direct output
   },
   async (input): Promise<AnalyzePronunciationOutput> => {
+    // Ensure transcribed sentence is not empty
+    if (!input.transcribedSentence || input.transcribedSentence.trim() === "") {
+      return {
+        isCorrect: false,
+        feedback: "No speech was detected or it was unclear. Please try again.",
+      };
+    }
+
     try {
-      // Ensure transcribed sentence is not empty, otherwise the model might error out
-      if (!input.transcribedSentence || input.transcribedSentence.trim() === "") {
+      const response = await analyzePronunciationPrompt(input);
+      const aiResponseText = response.text?.trim().toUpperCase();
+
+      if (aiResponseText === 'CORRECT') {
         return {
-          isCorrect: false,
-          feedback: "No speech was detected or it was unclear. Please try again.",
+          isCorrect: true,
+          feedback: "Good job! That's a good match.",
         };
-      }
-      const {output} = await analyzePronunciationPrompt(input);
-      if (output) {
-        return output;
-      } else {
-        // This case handles if the model doesn't return an output that matches the schema
-        console.error('AI model did not return valid output for analyzePronunciationPrompt with input:', input);
+      } else if (aiResponseText === 'INCORRECT') {
         return {
           isCorrect: false,
-          feedback: "I couldn't analyze that response. Please try speaking again clearly.",
+          feedback: "That's not quite right. Please try matching the sentence more closely.",
+        };
+      } else {
+        // The AI didn't return "CORRECT" or "INCORRECT"
+        console.error('AI model returned unexpected text for analyzePronunciationPrompt:', response.text, 'Input:', input);
+        return {
+          isCorrect: false,
+          feedback: "I couldn't determine if that was correct. Please try speaking again clearly.",
         };
       }
     } catch (e) {
-      // This case handles unexpected errors during the prompt execution
       console.error('Error within analyzePronunciationFlow or prompt execution:', e, 'Input:', input);
       return {
         isCorrect: false,
@@ -98,4 +104,3 @@ const analyzePronunciationFlow = ai.defineFlow(
     }
   }
 );
-
