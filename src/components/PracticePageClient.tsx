@@ -56,9 +56,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   useEffect(() => { currentDialogueLineRef.current = currentDialogueLine; }, [currentDialogueLine]);
   useEffect(() => { feedbackRef.current = feedback; }, [feedback]);
   useEffect(() => { isProcessingAiRef.current = isProcessingAi; }, [isProcessingAi]);
-  useEffect(() => { isScenarioFinishedRef.current = isScenarioFinished; }, [isScenarioFinished]);
   useEffect(() => { hasSubmittedTranscriptionRef.current = hasSubmittedTranscription; }, [hasSubmittedTranscription]);
   useEffect(() => { assistantLineManuallyPlayedRef.current = assistantLineManuallyPlayed; }, [assistantLineManuallyPlayed]);
+  useEffect(() => { isScenarioFinishedRef.current = isScenarioFinished; }, [isScenarioFinished]);
 
 
   useEffect(() => {
@@ -128,7 +128,12 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error, 'Message:', event.message);
+      if (event.error === 'interrupted' || event.error === 'aborted') {
+        console.log('Speech recognition intentionally stopped:', event.error, event.message);
+      } else {
+        console.error('Speech recognition error:', event.error, 'Message:', event.message);
+      }
+      
       let errorMessage = `Speech recognition error: ${event.error}`;
       if (event.error === 'no-speech') {
         errorMessage = "No speech was detected. Please ensure your microphone is active and you're speaking clearly.";
@@ -139,17 +144,27 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       } else if (event.error === 'network') {
         errorMessage = "A network error occurred during speech recognition. Please check your connection. This can be common on mobile.";
       } else if (event.error === 'aborted') {
+        // Aborted is often not a "true" error from user perspective if they clicked stop.
+        // However, if it happens unexpectedly, it's an issue.
+        // We'll still show a toast but maybe a milder one or none if stop was intentional.
+        // For now, keeping the toast.
         errorMessage = "Speech recognition was aborted. Please try again.";
       } else if (event.error === 'language-not-supported' || event.error === 'service-not-allowed' || event.error === 'bad-grammar') {
         errorMessage = `A speech service configuration error occurred (${event.error}). This might be a temporary issue.`;
-      } else {
-        errorMessage = `An unexpected speech error occurred: ${event.error}. Message: ${event.message || 'No additional message.'}`;
+      } else if (event.error === 'interrupted') {
+        // This is often not an error to show to the user, as it can be due to calling stop() or abort().
+        // Let's not toast for "interrupted"
+        setIsRecording(false);
+        return;
       }
       
       toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
       setIsRecording(false); 
       if (currentDialogueLineRef.current?.speaker === 'USER' && !feedbackRef.current && !hasSubmittedTranscriptionRef.current) {
-        setFeedback({ isCorrect: false, message: "Could not process audio due to a recording error. Please try again." });
+        const feedbackMessage = (event.error === 'no-speech' || event.error === 'audio-capture' || event.error === 'not-allowed' || event.error === 'network' || event.error === 'aborted')
+          ? errorMessage 
+          : "Could not process audio due to a recording error. Please try again.";
+        setFeedback({ isCorrect: false, message: feedbackMessage });
         setHasSubmittedTranscription(true); 
       }
     };
@@ -470,4 +485,3 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     </div>
   );
 }
-
