@@ -74,83 +74,12 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
   }, [currentLineIndex, scenario.dialogue.length]);
 
 
-  // Cleanup effect for component unmount
+  // Effect to initialize and manage SpeechRecognition instance
   useEffect(() => {
-    const recognitionInstance = recognitionRef.current;
-    return () => {
-      if (recognitionInstance) {
-        recognitionInstance.onresult = null;
-        recognitionInstance.onerror = null;
-        recognitionInstance.onend = null;
-        try {
-            recognitionInstance.abort();
-        } catch (e) {
-            console.warn("Error aborting recognition on unmount:", e);
-        }
-      }
-      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []); // Empty dependency array: runs only on mount and unmount
-
-  const processTranscription = useCallback(async (textToProcess: string) => {
-    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'USER' || !textToProcess.trim()) {
-       if (currentDialogueLineRef.current?.speaker === 'USER' && !textToProcess.trim()) {
-         setFeedback({ isCorrect: false, message: 'No speech was captured. Try speaking clearly.' });
-       }
-      return;
-    }
-    setIsProcessingAi(true);
-    setFeedback(null); 
-    try {
-      const result = await analyzePronunciation({
-        expectedSentence: currentDialogueLineRef.current.text,
-        transcribedSentence: textToProcess.trim(),
-      });
-      setFeedback({
-        isCorrect: result.isCorrect,
-        message: result.feedback,
-      });
-    } catch (error) {
-      console.error("Analysis error:", error);
-      setFeedback({ isCorrect: false, message: 'Error analyzing pronunciation. Please try again.' });
-      toast({ title: "Analysis Error", description: "Could not analyze pronunciation.", variant: "destructive" });
-    } finally {
-      setIsProcessingAi(false);
-    }
-  }, [toast]); // Removed currentDialogueLine from deps, using ref
-
-
-  useEffect(() => {
-    if (finalTranscriptProcessingTrigger === 0 || isRecording || hasSubmittedTranscription) {
-      return; 
-    }
-
-    const textToProcess = transcribedText.trim();
-    if (textToProcess) {
-      setHasSubmittedTranscription(true); 
-      processTranscription(textToProcess);
-    } else if (currentDialogueLineRef.current?.speaker === 'USER') { 
-      if (!feedbackRef.current) { 
-          setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
-      }
-      setHasSubmittedTranscription(true);
-    }
-  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, hasSubmittedTranscription]);
-
-
-  const handleStartRecording = useCallback(async () => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      toast({
-        title: "Browser Not Supported",
-        description: "Speech recognition is not supported in your browser. Please try Chrome or Edge.",
-        variant: "destructive",
-      });
+      // Toast moved to handleStartRecording if initialization fails there
       return;
     }
-
-    // Re-create SpeechRecognition instance and handlers for each recording attempt
     const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognitionImpl();
     const recognition = recognitionRef.current;
@@ -184,15 +113,13 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
         errorMessage = "Audio capture failed. Ensure your microphone is working and permissions are granted.";
       } else if (event.error === 'not-allowed') {
         errorMessage = "Microphone access denied. Please allow microphone access in browser settings.";
-      } else if (event.error === 'network') {
-        errorMessage = "A network error occurred during speech recognition. Please check your internet connection and try again.";
       }
       
       toast({ title: "Recording Error", description: errorMessage, variant: "destructive" });
-      setIsRecording(false);
+      setIsRecording(false); 
       if (currentDialogueLineRef.current?.speaker === 'USER' && !feedbackRef.current) {
         setFeedback({ isCorrect: false, message: errorMessage });
-        setHasSubmittedTranscription(true);
+        setHasSubmittedTranscription(true); 
       }
     };
     
@@ -200,7 +127,81 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       setIsRecording(false);
       setFinalTranscriptProcessingTrigger(prev => prev + 1); 
     };
-    // End of re-attaching handlers
+
+    const recognitionInstance = recognitionRef.current;
+    return () => {
+      if (recognitionInstance) {
+        recognitionInstance.onresult = null;
+        recognitionInstance.onerror = null;
+        recognitionInstance.onend = null;
+        try {
+            recognitionInstance.abort();
+        } catch (e) {
+            console.warn("Error aborting recognition on unmount:", e);
+        }
+      }
+      if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, [toast]); // Only depends on toast for initial setup
+
+
+  const processTranscription = useCallback(async (textToProcess: string) => {
+    if (!currentDialogueLineRef.current || currentDialogueLineRef.current.speaker !== 'USER' || !textToProcess.trim()) {
+       if (currentDialogueLineRef.current?.speaker === 'USER' && !textToProcess.trim()) {
+         setFeedback({ isCorrect: false, message: 'No speech was captured. Try speaking clearly.' });
+       }
+      return;
+    }
+    setIsProcessingAi(true);
+    setFeedback(null); 
+    try {
+      const result = await analyzePronunciation({
+        expectedSentence: currentDialogueLineRef.current.text,
+        transcribedSentence: textToProcess.trim(),
+      });
+      setFeedback({
+        isCorrect: result.isCorrect,
+        message: result.feedback,
+      });
+    } catch (error) {
+      console.error("Analysis error:", error);
+      setFeedback({ isCorrect: false, message: 'Error analyzing pronunciation. Please try again.' });
+      toast({ title: "Analysis Error", description: "Could not analyze pronunciation.", variant: "destructive" });
+    } finally {
+      setIsProcessingAi(false);
+    }
+  }, [toast]);
+
+
+  useEffect(() => {
+    if (finalTranscriptProcessingTrigger === 0 || isRecording || hasSubmittedTranscription) {
+      return; 
+    }
+
+    const textToProcess = transcribedText.trim();
+    if (textToProcess) {
+      setHasSubmittedTranscription(true); 
+      processTranscription(textToProcess);
+    } else if (currentDialogueLineRef.current?.speaker === 'USER') { 
+      if (!feedbackRef.current) { 
+          setFeedback({ isCorrect: false, message: 'No speech was detected or captured clearly.' });
+      }
+      setHasSubmittedTranscription(true);
+    }
+  }, [finalTranscriptProcessingTrigger, isRecording, transcribedText, processTranscription, hasSubmittedTranscription]);
+
+
+  const handleStartRecording = useCallback(async () => {
+    if (!recognitionRef.current) { // Check if SpeechRecognition was initialized
+      toast({
+        title: "Browser Not Supported",
+        description: "Speech recognition is not supported in your browser. Please try Chrome or Edge.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true }); 
@@ -214,9 +215,9 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
     } catch (err) {
       console.error("Microphone permission error:", err);
       toast({ title: "Microphone Access Denied", description: "Please allow microphone access in your browser settings.", variant: "destructive" });
-      setIsRecording(false); // Ensure UI reflects that recording isn't active
+      setIsRecording(false); 
     }
-  }, [toast]); // Dependencies are stable state setters or refs + toast
+  }, [toast]); 
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current && isRecording) {
@@ -287,7 +288,7 @@ export default function PracticePageClient({ scenario }: PracticePageClientProps
       }, 1500);
     }
     return cleanup;
-  }, [currentLineIndex, handleNextLine, toast]); // Depends on currentLineIndex to re-evaluate and handleNextLine
+  }, [currentLineIndex, handleNextLine, toast]); 
 
 
   if (isScenarioFinished) {
