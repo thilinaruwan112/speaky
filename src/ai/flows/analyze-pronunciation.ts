@@ -45,10 +45,9 @@ export async function analyzePronunciation(
 const analyzePronunciationPrompt = ai.definePrompt({
   name: 'analyzePronunciationPrompt',
   input: {schema: AnalyzePronunciationInputSchema},
-  // Removed output schema here to simplify AI's task
   prompt: `You are an AI assistant. Your task is to compare two sentences: an "Expected Sentence" and a "Transcribed Sentence".
 
-Determine if the "Transcribed Sentence" is substantially similar to the "Expected Sentence". "Substantially similar" means that the core meaning is the same and most of the important words are present, even if there are minor grammatical differences, or some small words are missing or different. This should be roughly equivalent to an 80% match or higher.
+Determine if the "Transcribed Sentence" is substantially similar to the "Expected Sentence". "Substantially similar" means that the core meaning is the same and most of the important words are present, even if there are minor grammatical differences (like "I'm" vs "I am"), or some small words are missing or different. This should be roughly equivalent to an 80% match or higher.
 
 Expected Sentence: {{{expectedSentence}}}
 Transcribed Sentence: {{{transcribedSentence}}}
@@ -62,10 +61,9 @@ const analyzePronunciationFlow = ai.defineFlow(
   {
     name: 'analyzePronunciationFlow',
     inputSchema: AnalyzePronunciationInputSchema,
-    outputSchema: AnalyzePronunciationOutputSchema, // This is the flow's output, not the prompt's direct output
+    outputSchema: AnalyzePronunciationOutputSchema,
   },
   async (input): Promise<AnalyzePronunciationOutput> => {
-    // Ensure transcribed sentence is not empty
     if (!input.transcribedSentence || input.transcribedSentence.trim() === "") {
       return {
         isCorrect: false,
@@ -75,28 +73,41 @@ const analyzePronunciationFlow = ai.defineFlow(
 
     try {
       const response = await analyzePronunciationPrompt(input);
-      const aiResponseText = response.text?.trim().toUpperCase();
+      const rawResponseText = response.text; 
 
-      if (aiResponseText === 'CORRECT') {
-        return {
-          isCorrect: true,
-          feedback: "Good job! That's a good match.",
-        };
-      } else if (aiResponseText === 'INCORRECT') {
-        return {
-          isCorrect: false,
-          feedback: "That's not quite right. Please try matching the sentence more closely.",
-        };
+      if (rawResponseText && typeof rawResponseText === 'string') {
+        const processedText = rawResponseText.trim().toUpperCase();
+        if (processedText === 'CORRECT') {
+          return {
+            isCorrect: true,
+            feedback: "Good job! That's a good match.",
+          };
+        } else if (processedText === 'INCORRECT') {
+          return {
+            isCorrect: false,
+            feedback: "That's not quite right. Please try matching the sentence more closely.",
+          };
+        } else {
+          console.error('AI model returned unexpected text for analyzePronunciationPrompt:', rawResponseText, 'Input:', input);
+          return {
+            isCorrect: false,
+            feedback: "I couldn't quite understand if that was correct. Please try speaking again clearly.",
+          };
+        }
       } else {
-        // The AI didn't return "CORRECT" or "INCORRECT"
-        console.error('AI model returned unexpected text for analyzePronunciationPrompt:', response.text, 'Input:', input);
+        console.error('AI model did not return text or returned invalid text for analyzePronunciationPrompt. Response object:', response, 'Input:', input);
         return {
           isCorrect: false,
-          feedback: "I couldn't determine if that was correct. Please try speaking again clearly.",
+          feedback: "I'm having a little trouble understanding the response. Could you try that again?",
         };
       }
     } catch (e) {
       console.error('Error within analyzePronunciationFlow or prompt execution:', e, 'Input:', input);
+      // Log more details if 'e' is an Error object
+      if (e instanceof Error) {
+        console.error('Error message:', e.message);
+        console.error('Error stack:', e.stack);
+      }
       return {
         isCorrect: false,
         feedback: "There was an unexpected problem analyzing your speech. Please try again.",
