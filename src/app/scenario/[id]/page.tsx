@@ -1,8 +1,10 @@
+
 import { getScenarioById, Scenario } from '@/lib/scenarios';
 import PracticePageClient from '@/components/PracticePageClient';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
+import { scenarios } from '@/lib/scenarios'; // Changed from await import
 
 interface ScenarioPageProps {
   params: {
@@ -34,7 +36,7 @@ export default async function ScenarioPage({ params }: ScenarioPageProps) {
 // This function can be used if you want to statically generate scenario pages at build time
 // For dynamic rendering (on-demand), this is not strictly necessary with App Router
 export async function generateStaticParams() {
-  const { scenarios } = await import('@/lib/scenarios');
+  // Use the direct import from above
   return scenarios.map((scenario) => ({
     id: scenario.id,
   }));

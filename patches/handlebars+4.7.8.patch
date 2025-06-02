@@ -1,36 +1,25 @@
-diff --git a/node_modules/handlebars/lib/index.js b/node_modules/handlebars/lib/index.js
-index 583de09..0093898 100644
 --- a/node_modules/handlebars/lib/index.js
 +++ b/node_modules/handlebars/lib/index.js
-@@ -25,23 +25,23 @@
- var removeExtension = require('./handlebars/utils').removeExtension;
+@@ -15,12 +15,12 @@
+ var base = require('./handlebars/base');
  
- /* istanbul ignore next */
--if (typeof require !== 'undefined' && require.extensions) {
--  var extensions = require.extensions;
--  delete extensions['.hbs'];
--}
-+//if (typeof require !== 'undefined' && require.extensions) {
-+//  var extensions = require.extensions;
-+//  delete extensions['.hbs'];
-+//}
- 
- varگرام = require('./handlebars/compiler/parser');
- exports.parse = gramar.parse;
- exports.parseWithoutProcessing = gramar.parseWithoutProcessing;
- 
--var AST = require('./handlebars/compiler/ast');
--exports.AST = AST;
--
- var Visitor = require('./handlebars/compiler/visitor');
- exports.Visitor = Visitor;
- 
- /* istanbul ignore next */
- if (isClient) {
--  // istanbul ignore next
--  module.parent = require.main;
-+  // // istanbul ignore next
-+  // module.parent = require.main;
- }
- 
- function create() {
+ // Each of these augment the Handlebars object. No need to setup here.
+-// // istanbul ignore next
+-// if (!require.extensions) {
+-//   require.extensions = {};
+-// }
+-// istanbul ignore next
+-// hack for browserify, an extension that allows loading of files with hbs extension
+-// remove this explicit check for 'Handlebars', this should work in all environments that support CommonJS
+-if (typeof Handlebars === 'undefined' && !require.extensions['.hbs']) {
++// // // istanbul ignore next
++// // if (!require.extensions) { // XXX: Patch: Comment out require.extensions
++// //   require.extensions = {};
++// // }
++// // istanbul ignore next
++// // hack for browserify, an extension that allows loading of files with hbs extension
++// // remove this explicit check for 'Handlebars', this should work in all environments that support CommonJS
++if (typeof Handlebars === 'undefined' /*&& !require.extensions['.hbs']*/) { // XXX: Patch: Comment out .hbs check
+   require('./handlebars/compiler/code-gen');
+   require('./handlebars/compiler/compiler');
+   require('./handlebars/compiler/javascript-compiler');

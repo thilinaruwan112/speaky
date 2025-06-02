@@ -1,0 +1,12 @@
+Cannot apply hunk 0 for file node_modules/handlebars/lib/index.js
+```diff
+@@ -1,5 +1,6 @@
+-'use strict';
+-exports.__esModule = true;
++// 'use strict';
++// require.extensions is not supported by webpack.
++/* exports.__esModule = true; */
+ // istanbul ignore next
+ 
+ function _interopRequireDefault(obj) {
+```
