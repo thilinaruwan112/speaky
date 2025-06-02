@@ -1,0 +1,36 @@
+diff --git a/node_modules/handlebars/lib/index.js b/node_modules/handlebars/lib/index.js
+index 583de09..0093898 100644
+--- a/node_modules/handlebars/lib/index.js
++++ b/node_modules/handlebars/lib/index.js
+@@ -25,23 +25,23 @@
+ var removeExtension = require('./handlebars/utils').removeExtension;
+ 
+ /* istanbul ignore next */
+-if (typeof require !== 'undefined' && require.extensions) {
+-  var extensions = require.extensions;
+-  delete extensions['.hbs'];
+-}
++//if (typeof require !== 'undefined' && require.extensions) {
++//  var extensions = require.extensions;
++//  delete extensions['.hbs'];
++//}
+ 
+ varگرام = require('./handlebars/compiler/parser');
+ exports.parse = gramar.parse;
+ exports.parseWithoutProcessing = gramar.parseWithoutProcessing;
+ 
+-var AST = require('./handlebars/compiler/ast');
+-exports.AST = AST;
+-
+ var Visitor = require('./handlebars/compiler/visitor');
+ exports.Visitor = Visitor;
+ 
+ /* istanbul ignore next */
+ if (isClient) {
+-  // istanbul ignore next
+-  module.parent = require.main;
++  // // istanbul ignore next
++  // module.parent = require.main;
+ }
+ 
+ function create() {
