@@ -124,21 +124,42 @@ const analyzePronunciationFlow = ai.defineFlow(
         grammaticallyCorrectedTranscription: "",
       };
     }
-    const { output } = await pronunciationPrompt(input);
-    if (!output) {
-      // Fallback in case LLM fails to provide structured output
+    try {
+      const { output } = await pronunciationPrompt(input);
+      if (!output) {
+        // Fallback in case LLM fails to provide structured output
+        return {
+          isCorrectAttempt: false,
+          feedback: "Sorry, I couldn't analyze your speech right now (LLM output issue). Please try again.",
+          grammaticallyCorrectedTranscription: input.transcribedSentence,
+        };
+      }
+      return output;
+    } catch (error) {
+      console.error('Error in analyzePronunciationFlow calling prompt:', error);
+      // Provide a generic error response that fits the AnalyzePronunciationOutputSchema
       return {
         isCorrectAttempt: false,
-        feedback: "Sorry, I couldn't analyze your speech right now. Please try again.",
-        grammaticallyCorrectedTranscription: input.transcribedSentence,
+        feedback: "An unexpected error occurred while analyzing your speech. Please check your connection or try again later.",
+        grammaticallyCorrectedTranscription: input.transcribedSentence, 
       };
     }
-    return output;
   }
 );
 
 export async function analyzePronunciation(
   input: AnalyzePronunciationInput
 ): Promise<AnalyzePronunciationOutput> {
-  return analyzePronunciationFlow(input);
+  try {
+    return await analyzePronunciationFlow(input);
+  } catch (error) {
+    console.error('Unhandled error in analyzePronunciation server action:', error);
+    // Return a generic error that fits the schema to prevent ISE
+    // and to give client-side code a structured error to display.
+    return {
+      isCorrectAttempt: false,
+      feedback: "A critical error occurred on the server while analyzing your speech. Please try again later or contact support if the issue persists.",
+      grammaticallyCorrectedTranscription: input.transcribedSentence, 
+    };
+  }
 }
